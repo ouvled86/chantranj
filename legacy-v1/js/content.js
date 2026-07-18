@@ -516,7 +516,7 @@ const CURRICULUM = [
         { move: 'e6e7', san: '3. e7', marks: ['e8'],
           note: `The pawn itself steals the opposition back! Black's king must now leave the promotion square. (Careful: if this pawn advance came WITH CHECK, it would only draw — a detail that decides thousands of games.)` },
         { move: 'e8f7', san: '3... Kf7', note: `` },
-        { move: 'e6d7', san: '4. Kd7', marks: ['e8'],
+        { move: 'd6d7', san: '4. Kd7', marks: ['e8'],
           note: `The king seizes e8's guardianship. Nothing can stop promotion now.` },
         { move: 'f7f6', san: '4... Kf6', note: `` },
         { move: 'e7e8q', san: '5. e8=Q', note: `A new queen. From here, the K+Q mate you'll learn next door finishes in a few moves.` },

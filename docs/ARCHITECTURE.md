@@ -95,7 +95,8 @@ These are created via Alembic with raw SQL (`create_hypertable`, compression, re
 continuous aggregates). This is the direct mirror of the automotive-telemetry homelab.
 
 ```
-move_events        time, game_id, ply, side, uci, san, clock_ms, eval_cp?, is_book, tag?
+move_events        time, game_id, user_id? (denormalized; null=bot), ply, side, uci, san,
+                   clock_ms, eval_cp?, is_book, tag?
                    → hypertable(time); feeds live game telemetry + post-hoc accuracy
 clock_ticks        time, game_id, white_ms, black_ms          (sampled; server clock truth)
 rating_history     time, user_id, mode, value, delta, game_id  → hypertable; powers rating graphs
@@ -105,11 +106,13 @@ engine_samples     time, request_kind(analyse|botmove|review), depth, latency_ms
 activity_events    time, user_id, kind(login|lesson|drill|game|duel|puzzle)  → drives streaks + funnels
 ```
 
-Continuous aggregates (materialized, auto-refreshed):
-- `leaderboard_daily` — latest rating per user/mode per day (fast leaderboard reads)
-- `player_accuracy_weekly` — mean accuracy from move_events per user
-- `engine_latency_5m` — p50/p95/p99 latency per request_kind (Grafana + alerts)
-- `dau_daily` — distinct active users/day from activity_events
+Continuous aggregates (materialized, auto-refreshed; caggs can't join or COUNT DISTINCT —
+hence the denormalized user_id and the two-step DAU):
+- `leaderboard_daily` — last rating per user/mode per day via `last(value, time)`
+- `player_accuracy_weekly` — clean-move ratio per user/week from move_events tags
+- `engine_latency_5m` — avg/max latency + volume per request_kind (p95 comes from the
+  Prometheus histograms on the engine service, not TimescaleDB)
+- `activity_daily` — events per user per day; DAU = `count(*)` over it grouped by day
 
 Retention/compression: compress hypertable chunks older than 7d; drop raw `clock_ticks` after
 30d (aggregates persist). Derived values (level from xp_events, W/L/D from Game) are computed,

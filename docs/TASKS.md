@@ -48,18 +48,18 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress / partially done (note why
 
 ## Phase 2 — Database schema, telemetry & content seeding
 
-- [ ] 2.1 SQLAlchemy models: Rating, Game, GameReview, Friendship, Stage, LearnItem, ItemProgress, PuzzleBank, Achievement, UserAchievement, Streak, DuelMatch (per ARCHITECTURE §3a) + Alembic migration
-- [ ] 2.2 **Telemetry hypertables** (ARCHITECTURE §3b): move_events, clock_ticks, rating_history, xp_events, engine_samples, activity_events — Alembic migration with raw `create_hypertable` + compression/retention policies
-- [ ] 2.3 **Continuous aggregates**: leaderboard_daily, player_accuracy_weekly, engine_latency_5m, dau_daily (Alembic raw SQL + refresh policies)
-- [ ] 2.4 Seed framework (`app/db/seed/`, idempotent upserts by slug)
-- [ ] 2.5 Port v1 `content.js` → seed data: 27 items mapped to new stages per CURRICULUM.md (keep step/line format verbatim)
-- [ ] 2.6 Content validator: replays every lesson step & drill line through **python-chess**; seeding fails on any illegal move/FEN
-- [ ] 2.7 Puzzle bank starter: import ~200 tactics puzzles (curated subset of the Lichess puzzle DB CSV — CC0) with themes + difficulty
-- [ ] 2.8 Achievement definitions seeded (~40, list in Phase 8 appendix)
-- [ ] 2.9 Dev fixtures: 6 demo users (1 admin), friendships, sample finished games + synthetic telemetry rows so Grafana has data
-- [ ] 2.10 `make seed` + docs; ERD export (e.g. `sqlalchemy_schemadisplay` or dbdiagram) committed to docs/
+- [x] 2.1 SQLAlchemy models: Rating, Game, GameReview, Friendship, Stage, LearnItem, ItemProgress, PuzzleBank, Achievement, UserAchievement, Streak, DuelMatch + Alembic migration `0002` (hand-written)
+- [x] 2.2 Telemetry hypertables (Core tables in models/telemetry.py + migration `0003`: create_hypertable, compression segmentby, clock_ticks 30d retention) — **runs only on postgres; verify at 0.11**. Note: move_events gained denormalized `user_id` (caggs can't join)
+- [x] 2.3 Continuous aggregates in `0003`: leaderboard_daily (last()), player_accuracy_weekly (clean-move ratio), engine_latency_5m (avg/max; p95 via Prometheus), activity_daily (DAU derived — caggs can't COUNT DISTINCT) + refresh policies, autocommit_block — verify at 0.11
+- [x] 2.4 Seed framework `app/db/seed/` (idempotent upserts by slug; `python -m app.db.seed`)
+- [x] 2.5 v1 content ported via Node converter → `seed/data/curriculum_v1.json` (27 items, format verbatim); stage placement map per CURRICULUM.md in `seed/stage_map.py`
+- [x] 2.6 python-chess validator (`seed/validate.py`) — seeding refuses illegal content. **Immediately caught+fixed a real v1 bug: opposition lesson step 6 was `e6d7`, king was on d6 → `d6d7`**
+- [ ] 2.7 Puzzle bank starter: import ~200 tactics puzzles (Lichess puzzle DB CSV, CC0) — **needs owner OK to download the dataset** (or fetch on the Docker machine); schema+table ready
+- [x] 2.8 40 achievement definitions seeded (declarative condition_json for the Phase 8 engine)
+- [x] 2.9 Dev fixtures: 6 demo users incl. `admin` (password Passw0rd1, dev env only). Sample games + synthetic telemetry rows deferred to Phase 4/5 when the writers exist
+- [~] 2.10 `make seed` wired; ERD export still todo (do on Docker machine or via dbdiagram from migration 0002)
 
-**DoD:** fresh `make up && make migrate && make seed` produces a fully populated dev DB with hypertables + working continuous aggregates; validator passes 100%.
+**DoD:** fresh `make up && make migrate && make seed` → populated dev DB with hypertables + caggs (pending 0.11); validator passes 100% ✓ (local: 22 tests incl. seed idempotency 12 stages/27 items/40 achievements).
 
 ---
 

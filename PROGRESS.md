@@ -11,7 +11,7 @@
 | P     | Planning & documentation               | ✅ Shipped  | 100%     |
 | 0     | Monorepo scaffold & tooling            | 🟨 Nearly done | 85%  |
 | 1     | Backend foundation (auth, users, admin)| 🟨 Nearly done | 90%  |
-| 2     | Database schema & content seeding      | ⬜ Not started | 0%    |
+| 2     | Database schema & content seeding      | 🟨 Nearly done | 85%  |
 | 3     | Frontend foundation (React port)       | ⬜ Not started | 0%    |
 | 4     | Online play (mode 1)                   | ⬜ Not started | 0%    |
 | 5     | Engine service, bots & review (modes 2+3) | ⬜ Not started | 0% |
@@ -39,16 +39,27 @@
 
 ## Next up
 
-**→ Phase 2 (DB schema + telemetry hypertables + content seeding).** Start with 2.1
-(SQLAlchemy models for Rating/Game/Stage/LearnItem/... per ARCHITECTURE §3a), then 2.2/2.3
-hypertable + continuous-aggregate migrations (raw SQL, TimescaleDB-only — write now, verify
-at 0.11), then 2.5 port legacy-v1/js/content.js into seed data with the python-chess validator.
+**→ Phase 3 (frontend foundation: React port of v1).** Start 3.2 app shell + router, then
+3.3 auth pages against the live API, then 3.4 the `<Board/>` port from legacy-v1/js.
+(3.1 tokens already done in Phase 0's Tailwind theme.)
 
-Still waiting on owner: 0.10 (GitHub repo name/visibility) · 0.11 (install Docker Desktop).
+Still waiting on owner: 0.10 (GitHub repo name/visibility) · 0.11 (install Docker Desktop —
+now also gates migrations 0002/0003 + hypertable/cagg verification) · 2.7 (OK to download
+Lichess puzzle CSV).
 
 ## Session log
 
 _Newest first. Keep entries to 2–4 lines._
+
+### 2026-07-19 — Session 3b (Phase 2: schema, telemetry, seeds)
+- Full domain models (games/ratings/friendships/curriculum/gamification) + telemetry Core
+  tables; migrations 0002 (relational) and 0003 (hypertables, compression, retention,
+  4 continuous aggregates — pg-only, verify at 0.11).
+- v1 content auto-converted to seed JSON via Node; python-chess validator wired into
+  seeding — it caught and fixed a REAL v1 content bug (opposition lesson `e6d7`→`d6d7`).
+- Idempotent seeds: 12 stages, 27 items, 40 achievements, 6 dev users. 22 tests green,
+  ruff+mypy clean. Cagg design notes: move_events has denormalized user_id; DAU via
+  activity_daily (no COUNT DISTINCT in caggs).
 
 ### 2026-07-19 — Session 3 (Phase 1: auth/users/admin)
 - Installed uv + Python 3.12 locally → backend verifiable without Docker (SQLite tests).
