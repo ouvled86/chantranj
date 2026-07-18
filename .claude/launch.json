@@ -2,10 +2,16 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "chess-study",
+      "name": "legacy-v1",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["--yes", "http-server", "-p", "4173", "-c-1", "."],
+      "runtimeArgs": ["--yes", "http-server", "-p", "4173", "-c-1", "legacy-v1"],
       "port": 4173
+    },
+    {
+      "name": "frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "frontend"],
+      "port": 5173
     }
   ]
 }
