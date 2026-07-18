@@ -10,6 +10,14 @@ dependencies = [
     "structlog>=24.4",
     "celery[redis]>=5.4",
     "redis>=5.2",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30",
+    "alembic>=1.14",
+    "pyjwt>=2.10",
+    "bcrypt>=4.2",
+    "itsdangerous>=2.2",
+    "prometheus-fastapi-instrumentator>=7",
+    "pydantic[email]>=2.13.4",
 ]
 
 [dependency-groups]
@@ -19,6 +27,7 @@ dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
     "httpx>=0.28",
+    "aiosqlite>=0.20",
 ]
 
 [tool.uv]
@@ -35,6 +44,14 @@ select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC"]
 python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["celery.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["app.workers.*"]
+disallow_untyped_decorators = false
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

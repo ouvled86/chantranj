@@ -9,7 +9,9 @@ import shutil
 
 from fastapi import FastAPI, HTTPException
 
-STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH") or shutil.which("stockfish") or "/usr/games/stockfish"
+STOCKFISH_PATH = (
+    os.environ.get("STOCKFISH_PATH") or shutil.which("stockfish") or "/usr/games/stockfish"
+)
 
 app = FastAPI(title="The Study — Engine Service", version="0.1.0")
 

@@ -10,7 +10,7 @@
 | v1    | Static lesson app (design + content)   | ✅ Shipped  | 100%     |
 | P     | Planning & documentation               | ✅ Shipped  | 100%     |
 | 0     | Monorepo scaffold & tooling            | 🟨 Nearly done | 85%  |
-| 1     | Backend foundation (auth, users, admin)| ⬜ Not started | 0%    |
+| 1     | Backend foundation (auth, users, admin)| 🟨 Nearly done | 90%  |
 | 2     | Database schema & content seeding      | ⬜ Not started | 0%    |
 | 3     | Frontend foundation (React port)       | ⬜ Not started | 0%    |
 | 4     | Online play (mode 1)                   | ⬜ Not started | 0%    |
@@ -22,9 +22,10 @@
 
 **Overall: planning complete (stack revised 2026-07-18 → Python/FastAPI/TimescaleDB) — Phase 0 in progress.**
 
-> ⚠ Machine note (2026-07-18): dev machine has git + Node 26, but **no Docker, no Python, no uv**.
-> Scaffold + frontend are verifiable locally; `make up` / backend tests need Docker Desktop
-> (or Python 3.12 + uv) installed — flagged to the owner.
+> ⚠ Machine note: dev machine has git + Node 26; **uv + Python 3.12 installed 2026-07-18**
+> (backend tests now run locally on SQLite). Still **no Docker** — `make up`, TimescaleDB,
+> Prometheus and the Alembic migration remain unverified until Docker Desktop is installed
+> (TASKS 0.11).
 
 ## What exists right now
 
@@ -38,15 +39,25 @@
 
 ## Next up
 
-**→ Phase 0, tasks 0.10 + 0.11 (both need the owner), then Phase 1.**
-- 0.11: install Docker Desktop, then `make up` + the verification list in TASKS 0.11.
-- 0.10: create GitHub repo + push (owner to confirm name/visibility).
-- Phase 1 (backend auth) can start in parallel with 0.11 — code + tests can be written
-  before Docker is available, verified after.
+**→ Phase 2 (DB schema + telemetry hypertables + content seeding).** Start with 2.1
+(SQLAlchemy models for Rating/Game/Stage/LearnItem/... per ARCHITECTURE §3a), then 2.2/2.3
+hypertable + continuous-aggregate migrations (raw SQL, TimescaleDB-only — write now, verify
+at 0.11), then 2.5 port legacy-v1/js/content.js into seed data with the python-chess validator.
+
+Still waiting on owner: 0.10 (GitHub repo name/visibility) · 0.11 (install Docker Desktop).
 
 ## Session log
 
 _Newest first. Keep entries to 2–4 lines._
+
+### 2026-07-19 — Session 3 (Phase 1: auth/users/admin)
+- Installed uv + Python 3.12 locally → backend verifiable without Docker (SQLite tests).
+- Built Phase 1: JWT+rotating-refresh auth (family reuse detection), Google OAuth (manual
+  flow, 503 till creds), RBAC, CSRF double-submit, redis rate limiting w/ memory fallback,
+  security headers, request-id logging, Prometheus instrumentation, admin+audit, Alembic 0001.
+- 19 tests green; ruff + mypy --strict clean. Deviations logged in TASKS: bcrypt over
+  passlib, manual OAuth over Authlib. Gotcha for future tests: httpx jar files testserver
+  cookies under domain "testserver.local".
 
 ### 2026-07-18 — Session 2b (Phase 0 execution)
 - Git repo initialized on `main`; v1 committed + tagged `v1-static`; v1 moved to legacy-v1/.

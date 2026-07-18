@@ -29,20 +29,20 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress / partially done (note why
 
 ## Phase 1 — Backend foundation: auth, users, admin skeleton
 
-- [ ] 1.1 Config (pydantic-settings, env-validated), structured logging (structlog/loguru), global exception handler (`{error:{code,message}}`), request-id middleware
-- [ ] 1.2 DB layer: async SQLAlchemy engine/session, `Base`, Alembic init; `User` + `RefreshToken` models; first migration
-- [ ] 1.3 Register/login (passlib[bcrypt], strong-password Pydantic validator); JWT access 15m + rotating refresh 7d in httpOnly cookies
-- [ ] 1.4 Refresh rotation with reuse detection (revoke token family, force re-login)
-- [ ] 1.5 Google OAuth (Authlib): link-by-email or create; `google_id` unique
-- [ ] 1.6 Auth dependency + RBAC dependency (`require_role`); `/users/me` GET/PATCH (username, avatar, settings)
-- [ ] 1.7 Public profile route `GET /users/{username}` (rating placeholders, joined date)
-- [ ] 1.8 Rate limiting (redis-backed): auth 5/min/IP, general 100/min/user; security headers middleware; CORS locked to frontend origin
-- [ ] 1.9 CSRF protection for cookie-auth state-changing routes (double-submit token)
-- [ ] 1.10 prometheus-fastapi-instrumentator: default + http histogram metrics; `/metrics` guarded to internal network
-- [ ] 1.11 Admin skeleton: `GET /admin/users` (paginated, search), `PATCH /admin/users/{id}` (role, ban); audit-log table + dependency
-- [ ] 1.12 Tests: unit (token service, password rules) + httpx AsyncClient integration (register→login→refresh→me→reuse-detection) against testcontainers TimescaleDB — CI green
+- [x] 1.1 Config (pydantic-settings), structlog, global exception handlers (`{error:{code,message,details?}}`), request-id middleware
+- [x] 1.2 DB layer: async SQLAlchemy engine/session (StaticPool for sqlite tests), `Base` w/ naming convention, Alembic init (async env); `User`+`RefreshToken`+`AuditLog` models; migration `0001` hand-written — exercised vs real TimescaleDB in 0.11
+- [x] 1.3 Register/login — **deviation: `bcrypt` lib directly instead of stale passlib**; strong-password validator; JWT access 15m + rotating refresh 7d in httpOnly cookies (refresh path-scoped to /api/v1/auth)
+- [x] 1.4 Refresh rotation with reuse detection (token families; replay revokes family) — covered by tests
+- [x] 1.5 Google OAuth — **deviation: manual code flow (httpx + itsdangerous signed state) instead of Authlib** (fewer deps, no SessionMiddleware); 503 when unconfigured (tested); live flow needs real creds (owner: create Google OAuth client, fill .env)
+- [x] 1.6 Auth dependency (cookie or Bearer) + `require_admin`; `/users/me` GET/PATCH (username/avatar/settings, 409 on taken username)
+- [x] 1.7 Public profile `GET /users/{username}` (no email leak; 404 for banned/missing)
+- [x] 1.8 Rate limiting: fixed-window, Redis-backed with in-process fallback; login/register 5/min/IP (429 tested); security-headers middleware; CORS locked
+- [x] 1.9 CSRF double-submit middleware (cookie-auth unsafe methods; Bearer exempt; auth endpoints exempt) — tested both directions
+- [x] 1.10 prometheus-fastapi-instrumentator wired, `/metrics` excluded from schema; network guarding happens at nginx (dev conf doesn't proxy /metrics) — visual check in 0.11
+- [x] 1.11 Admin: `GET /admin/users` (search+pagination), `PATCH /admin/users/{id}` (role/ban) + audit rows; ban blocks login (tested)
+- [x] 1.12 Tests: 19 passing (auth lifecycle, reuse detection, CSRF, rate limit, users, admin+audit) on local SQLite; ruff + mypy --strict clean. **Remaining for DoD: run against TimescaleDB via testcontainers/compose (0.11) + CI gate (Phase 9)**
 
-**DoD:** full auth lifecycle demonstrable via `/docs` or curl; tests pass in CI; metrics visible in Prometheus.
+**DoD:** full auth lifecycle demonstrable via `/docs` or curl ✓ (local); tests pass in CI (Phase 9); metrics visible in Prometheus (0.11).
 
 ---
 
