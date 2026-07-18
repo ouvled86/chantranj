@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+/* Design tokens ported from legacy-v1/css/style.css — the walnut study identity.
+   Keep in sync when Phase 3 does the full component port. */
+@theme {
+  --color-walnut-950: #1a140e;
+  --color-walnut-900: #221a12;
+  --color-walnut-800: #2e2418;
+  --color-walnut-700: #372c1e;
+  --color-walnut-line: #4a3b28;
+
+  --color-parchment: #f3e9d2;
+  --color-parchment-ink: #33281a;
+  --color-parchment-muted: #7a6a50;
+
+  --color-cream: #efe6d6;
+  --color-muted: #b3a289;
+  --color-gold: #d9a441;
+  --color-correct: #8cb65e;
+  --color-wrong: #c8503c;
+
+  --color-board-light: #e9d7b4;
+  --color-board-dark: #a97a4c;
+
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", Consolas, monospace;
+}
+
+body {
+  @apply bg-walnut-900 text-cream font-body antialiased;
+}

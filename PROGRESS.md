@@ -9,7 +9,7 @@
 |-------|----------------------------------------|-------------|----------|
 | v1    | Static lesson app (design + content)   | ✅ Shipped  | 100%     |
 | P     | Planning & documentation               | ✅ Shipped  | 100%     |
-| 0     | Monorepo scaffold & tooling            | ⬜ Not started | 0%    |
+| 0     | Monorepo scaffold & tooling            | 🟨 Nearly done | 85%  |
 | 1     | Backend foundation (auth, users, admin)| ⬜ Not started | 0%    |
 | 2     | Database schema & content seeding      | ⬜ Not started | 0%    |
 | 3     | Frontend foundation (React port)       | ⬜ Not started | 0%    |
@@ -38,13 +38,23 @@
 
 ## Next up
 
-**→ Phase 0, task 0.1:** `git init`, first commit of v1 + docs, then scaffold the monorepo
-layout (`frontend/`, `backend/`, `devops/`, `docs/`) per docs/ARCHITECTURE.md §2.
-Read docs/TASKS.md → "Phase 0" before starting.
+**→ Phase 0, tasks 0.10 + 0.11 (both need the owner), then Phase 1.**
+- 0.11: install Docker Desktop, then `make up` + the verification list in TASKS 0.11.
+- 0.10: create GitHub repo + push (owner to confirm name/visibility).
+- Phase 1 (backend auth) can start in parallel with 0.11 — code + tests can be written
+  before Docker is available, verified after.
 
 ## Session log
 
 _Newest first. Keep entries to 2–4 lines._
+
+### 2026-07-18 — Session 2b (Phase 0 execution)
+- Git repo initialized on `main`; v1 committed + tagged `v1-static`; v1 moved to legacy-v1/.
+- Scaffolded backend (FastAPI/uv/celery, tests written), engine (stockfish wrapper skeleton),
+  frontend (Vite 8/React 19/TS 6/Tailwind 4 — build+test+lint green, theme tokens verified
+  in browser), Dockerfiles (dev/prod targets), dev compose (8 services), Makefile, README.
+- Remaining in Phase 0: 0.10 GitHub push (owner call) + 0.11 Docker verification (no Docker
+  on this machine). Version note: vite pinned ^8 (plugin-react 6 requires it), vitest ^4.
 
 ### 2026-07-18 — Session 2 (stack pivot + Phase 0 start)
 - **Stack corrected:** user's real current focus is their DevOps-internship homelab

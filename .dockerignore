@@ -1,0 +1,15 @@
+.git
+.claude
+docs
+legacy-v1
+**/node_modules
+**/dist
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+.env
+.env.*
+!.env.example
+*.md

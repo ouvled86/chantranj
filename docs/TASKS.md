@@ -11,16 +11,17 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress / partially done (note why
 
 ## Phase 0 — Monorepo scaffold & tooling
 
-- [ ] 0.1 `git init`; commit v1 as-is (tag `v1-static`); create `.gitignore` (python, __pycache__, .venv, node, dist, .env)
-- [ ] 0.2 Move static app → `legacy-v1/` (keep it runnable; update .claude/launch.json path)
-- [ ] 0.3 Scaffold `frontend/` (Vite + React 19 + TS + Tailwind 4 + eslint + vitest) — boots to placeholder page
-- [ ] 0.4 Scaffold `backend/` (uv project, FastAPI + uvicorn, pydantic-settings; ruff + mypy + pytest configured; `GET /healthz` returns 200; `/docs` works)
-- [ ] 0.5 Scaffold `engine/` (FastAPI micro-service; `/healthz`; Stockfish binary installed in its Dockerfile; python-chess dep)
-- [ ] 0.6 `devops/containers/`: Dockerfiles for backend (uv, non-root), frontend (multi-stage → nginx), engine (stockfish); healthchecks
-- [ ] 0.7 `devops/compose/docker-compose.dev.yml`: **timescaledb** (timescale/timescaledb-ha:pg16), redis, backend (hot reload via uvicorn --reload), worker (celery), engine, frontend (vite), adminer; named volumes; healthchecks
-- [ ] 0.8 Makefile: `up down logs ps migrate revision seed test lint fmt typecheck build prod-up prod-down`
-- [ ] 0.9 Root README.md (portfolio-facing: screenshots section, stack badges, run instructions, the telemetry-mapping story)
-- [ ] 0.10 GitHub repo created + pushed; branch protection on main; conventional commits noted in CONTRIBUTING.md
+- [x] 0.1 `git init`; commit v1 as-is (tag `v1-static`); create `.gitignore` (python, __pycache__, .venv, node, dist, .env) — done, branch `main`
+- [x] 0.2 Move static app → `legacy-v1/` (keep it runnable; update .claude/launch.json path) — done via `git mv`, history preserved
+- [x] 0.3 Scaffold `frontend/` (Vite 8 + React 19 + TS 6 + Tailwind 4 + eslint + vitest 4) — verified: build ✓ tests ✓ lint ✓, placeholder renders with walnut/parchment tokens
+- [x] 0.4 Scaffold `backend/` (uv project, FastAPI + uvicorn, pydantic-settings, structlog, celery; ruff + mypy strict + pytest configured; /healthz + /readyz + tests written) — runtime verify pending Docker (0.11)
+- [x] 0.5 Scaffold `engine/` (FastAPI micro-service; /healthz reports stockfish availability; 501 stubs for Phase-5 endpoints; python-chess dep) — runtime verify pending Docker (0.11)
+- [x] 0.6 `devops/containers/`: backend/engine/frontend Dockerfiles (uv, dev+prod targets, non-root prod, healthchecks; root build-context + .dockerignore) — build verify pending Docker (0.11)
+- [x] 0.7 `devops/compose/docker-compose.dev.yml`: timescaledb (timescale/timescaledb:latest-pg16 — lighter than -ha, caggs included), redis, backend (reload), worker (celery), engine, frontend (vite), nginx dev proxy :8080, adminer; volumes + healthchecks — up verify pending Docker (0.11)
+- [x] 0.8 Makefile: `up down logs ps migrate revision seed test lint fmt typecheck build prod-up prod-down` (+ `env` bootstrap); `.env.example` added
+- [x] 0.9 Root README.md (portfolio-facing, telemetry-mapping story) + CONTRIBUTING.md (conventions)
+- [ ] 0.10 GitHub repo created + pushed; branch protection on main — **needs owner: confirm repo name/visibility (gh auth)**
+- [ ] 0.11 **BLOCKER:** install Docker Desktop (or run on a Docker-capable machine), then `make up` and verify: backend /healthz + /docs, engine /healthz (stockfish:true), worker connects to redis, nginx :8080 serves frontend, adminer reaches timescaledb; run `make test`
 
 **DoD:** `make up` gives a running dev stack; `curl :8000/healthz` OK from the backend container; FastAPI `/docs` loads; frontend dev page loads through nginx; committed & pushed.
 
