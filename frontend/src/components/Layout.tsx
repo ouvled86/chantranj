@@ -4,7 +4,8 @@ import { useAuth } from '../lib/auth';
 
 const navItems = [
   { to: '/learn', label: 'The Path', icon: '§' },
-  { to: '/play', label: 'Play', icon: '⚔', soon: true },
+  { to: '/play', label: 'Play', icon: '⚔' },
+  { to: '/games', label: 'Archive', icon: '❦' },
   { to: '/settings', label: 'Settings', icon: '⚙' },
 ];
 
@@ -14,36 +15,23 @@ export default function Layout() {
 
   const nav = (
     <nav className="flex-1 space-y-1 px-3 py-4">
-      {navItems.map((item) =>
-        item.soon ? (
-          <div
-            key={item.to}
-            className="flex items-center gap-3 rounded-xs px-3 py-2 text-sm text-muted opacity-50"
-          >
-            <span className="w-4 text-center font-mono text-xs">{item.icon}</span>
-            {item.label}
-            <span className="ml-auto font-mono text-[9px] uppercase tracking-wider text-gold">
-              soon
-            </span>
-          </div>
-        ) : (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            onClick={() => setOpen(false)}
-            className={({ isActive }) =>
-              `flex items-center gap-3 rounded-xs px-3 py-2 text-sm transition ${
-                isActive
-                  ? 'bg-gold/15 text-gold border-l-2 border-gold'
-                  : 'text-cream hover:bg-walnut-800 border-l-2 border-transparent'
-              }`
-            }
-          >
-            <span className="w-4 text-center font-mono text-xs">{item.icon}</span>
-            {item.label}
-          </NavLink>
-        ),
-      )}
+      {navItems.map((item) => (
+        <NavLink
+          key={item.to}
+          to={item.to}
+          onClick={() => setOpen(false)}
+          className={({ isActive }) =>
+            `flex items-center gap-3 rounded-xs px-3 py-2 text-sm transition ${
+              isActive
+                ? 'bg-gold/15 text-gold border-l-2 border-gold'
+                : 'text-cream hover:bg-walnut-800 border-l-2 border-transparent'
+            }`
+          }
+        >
+          <span className="w-4 text-center font-mono text-xs">{item.icon}</span>
+          {item.label}
+        </NavLink>
+      ))}
     </nav>
   );
 

@@ -2,8 +2,10 @@ import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom
 import Layout from './components/Layout';
 import ItemPage from './features/learn/ItemPage';
 import PathPage from './features/learn/PathPage';
+import PlayPage from './features/play/PlayPage';
 import { AuthProvider, useAuth } from './lib/auth';
 import { LoginPage, RegisterPage } from './pages/AuthPages';
+import GamesPage from './pages/GamesPage';
 import SettingsPage from './pages/SettingsPage';
 
 function Protected() {
@@ -30,6 +32,8 @@ export default function App() {
               <Route index element={<Navigate to="/learn" replace />} />
               <Route path="/learn" element={<PathPage />} />
               <Route path="/learn/:slug" element={<ItemPage />} />
+              <Route path="/play" element={<PlayPage />} />
+              <Route path="/games" element={<GamesPage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>
           </Route>

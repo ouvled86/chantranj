@@ -13,7 +13,7 @@
 | 1     | Backend foundation (auth, users, admin)| 🟨 Nearly done | 90%  |
 | 2     | Database schema & content seeding      | 🟨 Nearly done | 85%  |
 | 3     | Frontend foundation (React port)       | 🟨 Nearly done | 85%  |
-| 4     | Online play (mode 1)                   | 🟨 Backend done | 55% |
+| 4     | Online play (mode 1)                   | ✅ Playable | 90%  |
 | 5     | Engine service, bots & review (modes 2+3) | ⬜ Not started | 0% |
 | 6     | Learning path & admin CMS              | ⬜ Not started | 0%    |
 | 7     | Friends, presence & Puzzle Duel (mode 4) | ⬜ Not started | 0%  |
@@ -39,12 +39,16 @@
 
 ## Next up
 
-**→ Phase 4 frontend (tasks 4.5, 4.8, 4.9-UI):** Play page — WS client (`/ws/game`),
-time-control picker, queue UI, live game screen (Board + ticking clocks + move list +
-resign/draw + result modal), reconnect banner, game history page. Backend contract is
-final and fully tested — see ws message shapes in `backend/app/ws/game.py` and
-ARCHITECTURE §5. Local dev: backend `DATABASE_URL=sqlite+aiosqlite:///./dev.db ENV=dev
-uv run uvicorn app.main:app --port 8000` (seed first); vite proxies /api + /ws.
+**→ Phase 5 (engine service, bots, coaching, review — modes 2+3).** Start with 5.1: real
+UCI wrapper in `engine/app/main.py` (python-chess SimpleEngine pool, /botmove /analyse),
+then 5.2 bot level table, 5.3 Bot Arena flow (create bot game via REST + reuse the game
+service with a bot-move driver), then coach levels. NOTE: Stockfish binary is NOT on this
+Windows machine — either verify engine service under Docker (0.11) or download a stockfish
+.exe for local dev (ask owner — download permission needed).
+Remaining Phase 4 scraps live in TASKS (4.4 Redis pool, 4.11 load test — both Docker-gated).
+Local dev loop: backend `DATABASE_URL=sqlite+aiosqlite:///./dev.db ENV=dev uv run uvicorn
+app.main:app --port 8000`; vite proxies /api + /ws; scripted WS opponent:
+`uv run --with websockets python <scratchpad>/ws_opponent.py`.
 
 Known dev-only quirk: Vite dev server occasionally logs React "invalid hook call" during
 dependency re-optimization; the production build is console-clean (verified). Ignore in dev.
@@ -59,6 +63,15 @@ gates migrations, hypertables/caggs, Prometheus, real-Redis fan-out/matchmaking,
 ## Session log
 
 _Newest first. Keep entries to 2–4 lines._
+
+### 2026-07-19 — Session 4b (Phase 4 frontend: online play is LIVE)
+- Built the Play frontend: gameStore (WS client w/ auto-reconnect + sessionStorage rejoin),
+  lobby (7 TC presets, rated toggle, queue), live game screen (clocks synced to server,
+  move list, draw offer/respond, resign, result card w/ Elo delta), Archive page w/ PGN
+  download. React-compiler lint gotchas: no Date.now() in render, no sync setState in effect.
+- **Verified a real online game end-to-end:** browser (magnus_dev, white) vs scripted
+  Python WS client (hikaru_dev) — matchmade at 5+0 rated, Scholar's mate, "You win! by
+  checkmate", +20/−20 Elo both sides, Archive row + PGN correct.
 
 ### 2026-07-19 — Session 4 (Phase 4 backend: online play)
 - Built the online-play backend: server-authoritative game service (python-chess, full

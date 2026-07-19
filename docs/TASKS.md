@@ -85,11 +85,11 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress / partially done (note why
 - [x] 4.2 Server clocks: monotonic, increment support, per-game async watchdog for flag falls. **War story: watchdog self-cancelled inside `_finish_locked` (it cancels timeout_task = itself), CancelledError swallowed by its own suppress → flag games half-finished. Fix: `_cancel` never cancels `current_task`.**
 - [x] 4.3 WebSocket `/ws/game`: queue join/leave, move/resign/draw, rejoin+resync, opponent-connection events, cookie-JWT handshake auth (4401 close). **In-process fan-out (single-worker correct); Redis pub/sub variant = 0.11/Phase 9 when Docker exists**
 - [~] 4.4 Matchmaking: in-process FIFO pools per (TC, rated), anti-self-match, leave-on-disconnect. **Redis pool + rating-band widening pending Docker**
-- [ ] 4.5 Time control picker UI + custom FEN/960 options (frontend, next session)
+- [~] 4.5 Time control picker UI ✓ (7 presets incl. untimed, rated toggle); custom FEN/960 start deferred to friend challenges (Phase 7)
 - [x] 4.6 Elo service: K=40 provisional/K=20, applied atomically at game end, deltas on game row + rating_history telemetry; unit-tested
-- [x] 4.7 Disconnect handling: 30s grace task → abandonment loss (abort if <2 moves); reconnect cancels grace. Banner UI pending frontend
-- [ ] 4.8 Game UI: board + clocks + move list + draw/resign + result modal (next session)
-- [~] 4.9 REST: GET /games (history, paginated) + /games/{id} incl. PGN — UI + spectate link pending
+- [x] 4.7 Disconnect handling: 30s grace task → abandonment loss (abort if <2 moves); reconnect cancels grace; "disconnected — 30s to forfeit" banner in game UI; socket auto-reconnects + rejoins via sessionStorage game id
+- [x] 4.8 Game UI (`features/play/`): lobby (TC picker, rated toggle, queue), live screen (Board, ticking cosmetic clocks synced to server, move list, draw offer/respond, resign w/ confirm, result card with Elo delta). **Verified live: browser (magnus_dev) vs scripted WS client (hikaru_dev) played a full rated 5+0 — Scholar's mate, +20/−20 Elo, both sides consistent**
+- [x] 4.9 REST + UI: Archive page (result/TC/reason/delta rows, PGN download); spectate-by-link deferred to Phase 7 (friends)
 - [x] 4.10 WS integration tests: 2-client scripted fool's mate w/ Elo assertions, illegal/out-of-turn rejection, flag fall, resignation (4 scenarios; reconnect scenario TODO). **Test-rig lesson: all WS sessions must share ONE portal loop — open sockets from a single entered TestClient with explicit Cookie headers.** pytest-timeout (90s) now default
 - [ ] 4.11 Load sanity: 50 concurrent games (do with Docker/real setup at 0.11)
 
