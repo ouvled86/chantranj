@@ -1,4 +1,4 @@
-# PROGRESS — The Study
+﻿# PROGRESS — The Study
 
 > Live tracker. Read this first every session. Update it every time a task lands.
 > Detailed checkboxes live in [docs/TASKS.md](docs/TASKS.md).
@@ -9,18 +9,19 @@
 |-------|----------------------------------------|-------------|----------|
 | v1    | Static lesson app (design + content)   | ✅ Shipped  | 100%     |
 | P     | Planning & documentation               | ✅ Shipped  | 100%     |
-| 0     | Monorepo scaffold & tooling            | 🟨 Nearly done | 85%  |
+| 0     | Monorepo scaffold & tooling            | ✅ Done (0.10 deferred) | 95% |
 | 1     | Backend foundation (auth, users, admin)| 🟨 Nearly done | 90%  |
 | 2     | Database schema & content seeding      | 🟨 Nearly done | 85%  |
 | 3     | Frontend foundation (React port)       | 🟨 Nearly done | 85%  |
 | 4     | Online play (mode 1)                   | ✅ Playable | 90%  |
-| 5     | Engine service, bots & review (modes 2+3) | 🟨 Bots live | 45% |
+| 5     | Engine service, bots & review (modes 2+3) | ✅ Live | 95%  |
 | 6     | Learning path & admin CMS              | ⬜ Not started | 0%    |
 | 7     | Friends, presence & Puzzle Duel (mode 4) | ⬜ Not started | 0%  |
 | 8     | Gamification (XP, achievements, boards)| ⬜ Not started | 0%    |
 | 9     | Production hardening & deployment      | ⬜ Not started | 0%    |
 
-**Overall: phases 0–4 done and verified; Phase 5 in progress (bots ✓ live, coach+review next).**
+**Overall: phases 0–5 done and live-verified. All three play modes work: Online, Learn
+(coach L1–L5), Bot Arena — plus post-game reviews via Celery+Stockfish. Next: Phase 6.**
 
 > Machine note: git + Node 26 + uv/Python 3.12 + **Docker Desktop (installed 2026-07-19,
 > WSL2 backend)**. Full compose stack runs locally: `docker compose -f
@@ -40,29 +41,28 @@
 
 ## Next up
 
-**→ Phase 5 remainder:** 5.4 post-game review pipeline (Celery task calling engine /review
-— endpoint already implemented with lichess-style accuracy — store GameReview, review UI
-with eval graph), 5.5–5.8 Learn-mode coaching (coach:info channel, L1–L5 config per PLAN §3,
-coach UI: eval bar/hints/blunder-confirm/takebacks), 5.9 engine failure degradation,
-5.10 engine-container tests (engine/tests vs real stockfish: `docker compose exec engine
-pytest`). Then Phase 6 (gating already half-built; CMS + bosses).
-Now that Docker works, also circle back: 4.4 Redis matchmaking/pub-sub, 4.11 load sanity,
-Prometheus/Grafana services in compose (currently absent from dev compose — add when
-wiring dashboards, or at Phase 9).
+**→ Phase 6 (learning path gating polish + admin CMS + boss checkpoints).** Gating itself
+shipped in Phase 3 (learn router, strict linear). Start with 6.2 boss checkpoints
+(boss_config on LearnItem + server-verified objectives via a LEARN-mode game), then the
+admin CMS (6.5-6.7), then content authoring batches (6.8-6.10 per docs/CURRICULUM.md).
 
-Known dev-only quirk: Vite dev server occasionally logs React "invalid hook call" during
-dependency re-optimization; the production build is console-clean (verified). Ignore in dev.
-
-Test-rig gotchas (learned the hard way, see TASKS 4.2/4.10 notes): WS tests share ONE
-TestClient portal; never let a task cancel itself in cleanup paths.
-
-Still waiting on owner: 0.10 (GitHub repo name/visibility) · 0.11 (install Docker Desktop —
-gates migrations, hypertables/caggs, Prometheus, real-Redis fan-out/matchmaking, load test) ·
-2.7 (OK to download Lichess puzzle CSV).
+Dev loop: full stack via compose (:8080). Windows gotchas already fixed in compose:
+VITE_POLL=1 for the vite watcher; engine tests mounted. Restart `worker` after changing
+celery task code (no autoreload).
 
 ## Session log
 
 _Newest first. Keep entries to 2–4 lines._
+
+### 2026-07-20 — Session 5b (Phase 5 complete: coach + review LIVE)
+- Coach L1–L5 shipped: config-driven `services/coach.py`, coach:info after every ply,
+  hints w/ budgets + arrow, server-side takebacks, L1 premove blunder-confirm; CoachPanel UI.
+- Review pipeline: Celery `review.generate` (inline fallback w/o broker), Archive UI
+  request→poll→accuracy+tags. **All verified vs REAL Stockfish through :8080** — coach
+  winced at Ke2??, hint arrow drew, takeback rewound, review returned 96.8%/91.3%.
+- War story logged (TASKS 5.9): illegal-FEN → stockfish segfault (exit −11) whose corpse
+  poisoned the pool → added is_valid() 400-guard + self-healing respawn + lifespan reset.
+- 37 backend + 6 real-engine container tests green; everything lint/type clean.
 
 ### 2026-07-19 — Session 5 (Docker + engine service + Bot Arena LIVE)
 - Installed Docker Desktop (winget, WSL2). Full 8-service stack up; **task 0.11 cleared:

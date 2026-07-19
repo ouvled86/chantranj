@@ -3,6 +3,7 @@
 import asyncio
 from typing import Any
 
+import chess
 import jwt as pyjwt
 import structlog
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -11,6 +12,7 @@ from sqlalchemy import select
 from app.core.security import decode_token
 from app.db.session import get_session_factory
 from app.models import RatingMode, User
+from app.services import coach as coach_service
 from app.services import games as game_service
 from app.services import matchmaking
 from app.services.elo import get_or_create_rating
@@ -46,6 +48,39 @@ async def _drive_bot(game: LiveGame) -> None:
         await manager.send_room(game.id, {"type": "game:move", "data": payload})
 
     await game_service.drive_bot(game, notify)
+    if game.coach_level is not None and game.status == "active":
+        await _coach_after_move(game, moved_by="b")
+
+
+def _coach_budgets(game: LiveGame) -> tuple[int | None, int | None]:
+    cfg = coach_service.COACH_LEVELS[game.coach_level or 1]
+    hints = cfg["hints"]
+    takebacks = cfg["takebacks"]
+    hints_left = None if hints is None else max(0, hints - game.hints_used)
+    tb_left = None if takebacks is None else max(0, takebacks - game.takebacks_used)
+    return hints_left, tb_left
+
+
+async def _coach_after_move(game: LiveGame, moved_by: str) -> None:
+    """Evaluate the fresh position and push level-filtered info to the human."""
+    if game.coach_level is None:
+        return
+    fen = game.board.fen()
+    ply = len(game.moves)
+    prev = game.last_eval_cp
+    cp = await coach_service.evaluate(fen)
+    if cp is None:
+        return
+    game.last_eval_cp = cp
+    drop = None
+    if moved_by == "w" and prev is not None:
+        drop = coach_service.win_pct(prev) - coach_service.win_pct(cp)
+    hints_left, tb_left = _coach_budgets(game)
+    info = coach_service.build_info(
+        game.coach_level, ply=ply, eval_cp=cp, drop=drop,
+        hints_left=hints_left, takebacks_left=tb_left,
+    )
+    await manager.send_user(game.white_id, {"type": "coach:info", "data": info})
 
 
 async def _start_game(
@@ -135,6 +170,9 @@ async def _handle(user_id: int, msg: dict[str, Any]) -> dict[str, Any] | None:
         await manager.send_user(user_id, {"type": "game:state", "data": game.state_payload()})
         if game.bot_level is not None:
             asyncio.create_task(_drive_bot(game))  # noqa: RUF006 — fire and forget
+        if game.coach_level is not None and game.last_eval_cp is None and not game.moves:
+            # Baseline eval for the eval bar at game start.
+            asyncio.create_task(_coach_after_move(game, moved_by="b"))  # noqa: RUF006
         return None
 
     if game is None:
@@ -147,8 +185,33 @@ async def _handle(user_id: int, msg: dict[str, Any]) -> dict[str, Any] | None:
             # Always broadcast — clients need the FINAL position too (game:over
             # has already been sent by on_over when the move ended the game).
             await manager.send_room(game.id, {"type": "game:move", "data": payload})
-            if payload.get("status") == "active" and game.bot_level is not None:
-                asyncio.create_task(_drive_bot(game))  # noqa: RUF006
+            if payload.get("status") == "active":
+                if game.coach_level is not None:
+                    await _coach_after_move(game, moved_by="w")
+                if game.bot_level is not None:
+                    asyncio.create_task(_drive_bot(game))  # noqa: RUF006
+        elif mtype == "coach:hint":
+            if game.coach_level is None:
+                return {"code": "no_coach", "message": "Not a Learn game"}
+            hints_left, _ = _coach_budgets(game)
+            if hints_left is not None and hints_left <= 0:
+                return {"code": "no_hints", "message": "No hints left at this coach level"}
+            best = await coach_service.best_move(game.board.fen())
+            if best is None:
+                return {"code": "engine_down", "message": "The coach is unavailable right now"}
+            game.hints_used += 1
+            hints_left, _ = _coach_budgets(game)
+            await manager.send_user(
+                user_id, {"type": "coach:hint", "data": {"move": best, "hints_left": hints_left}}
+            )
+        elif mtype == "coach:takeback":
+            payload = await game_service.takeback(game, user_id)
+            await manager.send_room(game.id, {"type": "game:state", "data": payload})
+        elif mtype == "coach:premove":
+            if game.coach_level is None:
+                return {"code": "no_coach", "message": "Not a Learn game"}
+            verdict = await _premove_verdict(game, data)
+            await manager.send_user(user_id, {"type": "coach:premove_verdict", "data": verdict})
         elif mtype == "game:resign":
             await game_service.resign(game, user_id)
         elif mtype == "game:draw_offer":
@@ -165,6 +228,35 @@ async def _handle(user_id: int, msg: dict[str, Any]) -> dict[str, Any] | None:
     except MoveError as exc:
         return {"code": exc.code, "message": str(exc)}
     return None
+
+
+async def _premove_verdict(game: LiveGame, data: dict[str, Any]) -> dict[str, Any]:
+    """L1 blunder-confirm: score the intended move WITHOUT playing it."""
+    frm, to, promo = str(data.get("from", "")), str(data.get("to", "")), str(data.get("promo", ""))
+    echo = {"from": frm, "to": to, "promo": promo}
+    try:
+        move = chess.Move.from_uci(f"{frm}{to}{promo}")
+    except ValueError:
+        return {**echo, "ok": False, "legal": False}
+    board = game.board.copy()
+    if (
+        move.promotion is None
+        and board.piece_type_at(move.from_square) == chess.PAWN
+        and chess.square_rank(move.to_square) in (0, 7)
+    ):
+        move = chess.Move(move.from_square, move.to_square, promotion=chess.QUEEN)
+    if move not in board.legal_moves:
+        return {**echo, "ok": False, "legal": False}
+    before = game.last_eval_cp
+    if before is None:
+        before = await coach_service.evaluate(board.fen(), depth=coach_service.PREMOVE_DEPTH)
+    board.push(move)
+    after = await coach_service.evaluate(board.fen(), depth=coach_service.PREMOVE_DEPTH)
+    if before is None or after is None:
+        return {**echo, "ok": True, "legal": True}  # engine down → don't block play
+    drop = coach_service.win_pct(before) - coach_service.win_pct(after)
+    tag = coach_service.tag_from_drop(drop)
+    return {**echo, "ok": tag not in ("mistake", "blunder"), "legal": True, "tag": tag}
 
 
 @router.websocket("/ws/game")

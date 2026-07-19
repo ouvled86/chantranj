@@ -57,6 +57,9 @@ class LiveGame:
     moves: list[tuple[str, str]] = field(default_factory=list)  # (uci, san)
     status: str = "active"
     draw_offer_by: int | None = None
+    hints_used: int = 0
+    takebacks_used: int = 0
+    last_eval_cp: int | None = None  # coach cache, white POV
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     timeout_task: asyncio.Task[None] | None = None
     disconnect_tasks: dict[int, asyncio.Task[None]] = field(default_factory=dict)
@@ -95,6 +98,8 @@ class LiveGame:
             "black_id": self.black_id,
             "bot_level": self.bot_level,
             "coach_level": self.coach_level,
+            "hints_used": self.hints_used,
+            "takebacks_used": self.takebacks_used,
         }
 
 
@@ -274,6 +279,31 @@ async def _apply_locked(
     payload["uci"] = move.uci()
     payload["by"] = "w" if color == chess.WHITE else "b"
     return payload
+
+
+async def takeback(game: LiveGame, user_id: int) -> dict[str, Any]:
+    """LEARN mode only: rewind the human's last move plus the bot's reply."""
+    from app.services.coach import COACH_LEVELS  # local import: coach imports engine bits
+
+    async with game.lock:
+        if game.status != "active" or game.coach_level is None:
+            raise MoveError("no_takeback", "Takebacks are not available here")
+        if game.player_color(user_id) != chess.WHITE:
+            raise MoveError("not_a_player", "You are not playing this game")
+        allowed = COACH_LEVELS[game.coach_level]["takebacks"]
+        if allowed is not None and game.takebacks_used >= allowed:
+            raise MoveError("no_takeback", "No takebacks left at this coach level")
+        if game.board.turn != chess.WHITE or len(game.moves) < 2:
+            raise MoveError("no_takeback", "Nothing to take back yet")
+        game.board.pop()
+        game.board.pop()
+        game.moves.pop()
+        game.moves.pop()
+        game.takebacks_used += 1
+        game.last_eval_cp = None  # stale after the rewind
+        game.turn_started = time.monotonic()
+        _reschedule_watchdog(game)
+        return game.state_payload()
 
 
 async def resign(game: LiveGame, user_id: int) -> None:

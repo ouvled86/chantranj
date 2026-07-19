@@ -47,8 +47,17 @@ def stockfish_available() -> bool:
     return shutil.which("stockfish") is not None or os.path.exists(STOCKFISH_PATH)
 
 
+def _drain_pool() -> None:
+    while not _pool.empty():
+        _pool.get_nowait()
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    # Reset fully on every startup — repeated lifespans (tests, reloads) must
+    # never inherit engines that a previous shutdown already quit.
+    _engines.clear()
+    _drain_pool()
     if stockfish_available():
         for _i in range(POOL_SIZE):
             transport, engine = await chess.engine.popen_uci(STOCKFISH_PATH)
@@ -58,9 +67,21 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     for _t, engine in _engines:
         with contextlib.suppress(Exception):
             await engine.quit()
+    _engines.clear()
+    _drain_pool()
 
 
 app = FastAPI(title="The Study — Engine Service", version="0.2.0", lifespan=lifespan)
+
+
+def _is_dead(engine: chess.engine.Protocol) -> bool:
+    return engine.returncode.done()
+
+
+async def _respawn() -> chess.engine.Protocol:
+    transport, engine = await chess.engine.popen_uci(STOCKFISH_PATH)
+    _engines.append((transport, engine))
+    return engine
 
 
 @asynccontextmanager
@@ -74,14 +95,23 @@ async def acquire() -> AsyncIterator[chess.engine.Protocol]:
     try:
         yield engine
     finally:
+        # Self-healing pool: a crashed stockfish must never poison future requests.
+        if _is_dead(engine):
+            _engines[:] = [(t, e) for t, e in _engines if e is not engine]
+            with contextlib.suppress(Exception):
+                engine = await _respawn()
         _pool.put_nowait(engine)
 
 
 def _board_or_400(fen: str) -> chess.Board:
     try:
-        return chess.Board(fen)
+        board = chess.Board(fen)
     except ValueError as exc:
         raise HTTPException(400, f"Bad FEN: {exc}") from exc
+    # Illegal positions (e.g. side not-to-move in check) can segfault stockfish.
+    if not board.is_valid():
+        raise HTTPException(400, f"Illegal position: {board.status()!r}")
+    return board
 
 
 @app.get("/healthz")

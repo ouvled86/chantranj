@@ -3,6 +3,7 @@ import Board from '../../components/Board';
 import { idxToSq, isWhitePiece, parseFEN, pseudoMoves } from '../../lib/chess';
 import { useAuth } from '../../lib/auth';
 import Clock from './Clock';
+import CoachPanel from './CoachPanel';
 import {
   BOT_ANCHORS,
   backToLobby,
@@ -11,10 +12,18 @@ import {
   offerDraw,
   resign,
   respondDraw,
-  sendMove,
+  sendMoveSmart,
   startBotGame,
   usePlayState,
 } from './gameStore';
+
+const COACH_NAMES: Record<number, string> = {
+  1: 'Full Coach',
+  2: 'Guided',
+  3: 'Balanced',
+  4: 'Whisper',
+  5: 'Shadow',
+};
 
 const TIME_CONTROLS: { label: string; base: number | null; inc: number; tag: string }[] = [
   { label: '1+0', base: 1, inc: 0, tag: 'bullet' },
@@ -36,8 +45,9 @@ function Lobby() {
   const play = usePlayState();
   const [tcIdx, setTcIdx] = useState(2); // 5+0
   const [rated, setRated] = useState(true);
-  const [opponent, setOpponent] = useState<'human' | 'bot'>('human');
+  const [opponent, setOpponent] = useState<'human' | 'bot' | 'learn'>('human');
   const [botLevel, setBotLevel] = useState(3);
+  const [coachLevel, setCoachLevel] = useState(2);
   const [starting, setStarting] = useState(false);
   const tc = TIME_CONTROLS[tcIdx];
 
@@ -47,38 +57,63 @@ function Lobby() {
       <p className="mb-6 font-display italic text-muted">
         {opponent === 'human'
           ? 'Human vs human — no engines, no hints.'
-          : 'The Bot Arena — no training wheels, rated against the ladder.'}
+          : opponent === 'bot'
+            ? 'The Bot Arena — no training wheels, rated against the ladder.'
+            : 'Learn by playing — a bot to beat, a coach at your shoulder. Unrated.'}
       </p>
 
       <div className="mb-5">
         <div className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
           Opponent
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setOpponent('human')}
-            className={`rounded-xs border px-4 py-2 text-sm ${
-              opponent === 'human'
-                ? 'border-gold bg-gold/15 text-gold'
-                : 'border-walnut-line bg-walnut-800 hover:border-muted'
-            }`}
-          >
-            ♟ Human
-          </button>
-          <button
-            onClick={() => setOpponent('bot')}
-            className={`rounded-xs border px-4 py-2 text-sm ${
-              opponent === 'bot'
-                ? 'border-gold bg-gold/15 text-gold'
-                : 'border-walnut-line bg-walnut-800 hover:border-muted'
-            }`}
-          >
-            ⚙ Bot Arena
-          </button>
+        <div className="flex flex-wrap gap-2">
+          {(
+            [
+              ['human', '♟ Human'],
+              ['learn', '§ Learn'],
+              ['bot', '⚙ Bot Arena'],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setOpponent(key)}
+              className={`rounded-xs border px-4 py-2 text-sm ${
+                opponent === key
+                  ? 'border-gold bg-gold/15 text-gold'
+                  : 'border-walnut-line bg-walnut-800 hover:border-muted'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {opponent === 'bot' && (
+      {opponent === 'learn' && (
+        <div className="mb-5">
+          <div className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
+            Coaching intensity
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {[1, 2, 3, 4, 5].map((lvl) => (
+              <button
+                key={lvl}
+                onClick={() => setCoachLevel(lvl)}
+                className={`rounded-xs border px-3 py-2 text-sm ${
+                  lvl === coachLevel
+                    ? 'border-gold bg-gold/15 text-gold'
+                    : 'border-walnut-line bg-walnut-800 text-cream hover:border-muted'
+                }`}
+              >
+                L{lvl}
+                <span className="ml-1.5 text-[10px] text-muted">{COACH_NAMES[lvl]}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {opponent !== 'human' && (
         <div className="mb-5">
           <div className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
             Bot strength
@@ -154,14 +189,24 @@ function Lobby() {
           onClick={async () => {
             setStarting(true);
             try {
-              await startBotGame(botLevel, tc.base, tc.inc, rated);
+              await startBotGame(
+                botLevel,
+                tc.base,
+                tc.inc,
+                opponent === 'bot' && rated,
+                opponent === 'learn' ? coachLevel : null,
+              );
             } finally {
               setStarting(false);
             }
           }}
           className="rounded-xs bg-gold px-6 py-3 font-bold text-walnut-950 hover:bg-[#e5b458] disabled:opacity-50"
         >
-          {starting ? 'Setting up…' : `Challenge Bot ${botLevel}`}
+          {starting
+            ? 'Setting up…'
+            : opponent === 'learn'
+              ? `Start lesson game (Bot ${botLevel}, ${COACH_NAMES[coachLevel]})`
+              : `Challenge Bot ${botLevel}`}
         </button>
       )}
       {play.error && <p className="mt-4 text-sm text-wrong">{play.error}</p>}
@@ -200,9 +245,13 @@ function GameScreen() {
     const piece2 = pos.board[selected];
     const promo =
       piece2?.toLowerCase() === 'p' && (to[1] === '8' || to[1] === '1') ? 'q' : '';
-    sendMove(from, to, promo);
+    sendMoveSmart(from, to, promo);
     setSelected(null);
   };
+
+  const hintArrow: [string, string][] = play.coach.hintMove
+    ? [[play.coach.hintMove.slice(0, 2), play.coach.hintMove.slice(2, 4)]]
+    : [];
 
   const myClock = myColor === 'w' ? game.clocks.w : game.clocks.b;
   const oppClock = myColor === 'w' ? game.clocks.b : game.clocks.w;
@@ -236,6 +285,7 @@ function GameScreen() {
           dots={selected !== null ? pseudoMoves(pos, selected) : []}
           selected={selected}
           lastMove={game.last_move}
+          arrows={hintArrow}
           onSquareClick={onSquareClick}
         />
 
@@ -255,6 +305,7 @@ function GameScreen() {
       </div>
 
       <div>
+        <CoachPanel />
         {oppOfferedDraw && play.phase === 'playing' && (
           <div className="mb-4 rounded-xs border border-gold/45 bg-gold/15 p-3 text-sm">
             Your opponent offers a draw.

@@ -9,6 +9,7 @@ settings = get_settings()
 celery = Celery("the_study", broker=settings.redis_url)
 celery.conf.task_default_queue = "default"
 celery.conf.broker_connection_retry_on_startup = True
+celery.conf.imports = ("app.workers.tasks",)
 
 
 @celery.task(name="ops.ping")

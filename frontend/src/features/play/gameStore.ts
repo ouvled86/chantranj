@@ -12,7 +12,11 @@ export interface ServerGameState {
   status: string;
   draw_offer_by: number | null;
   white_id: number;
-  black_id: number;
+  black_id: number | null;
+  bot_level?: number | null;
+  coach_level?: number | null;
+  hints_used?: number;
+  takebacks_used?: number;
 }
 
 export interface GameOver {
@@ -20,6 +24,30 @@ export interface GameOver {
   reason: string;
   rating_delta: { w: number | null; b: number | null };
 }
+
+export interface CoachState {
+  evalCp: number | null;
+  tag: string | null;
+  note: string | null;
+  critical: boolean;
+  hintMove: string | null;
+  hintsLeft: number | null; // null = unlimited
+  takebacksLeft: number | null;
+  pendingConfirm: { from: string; to: string; promo: string; tag?: string } | null;
+  showEval: boolean; // L3 on-demand toggle
+}
+
+const COACH_INIT: CoachState = {
+  evalCp: null,
+  tag: null,
+  note: null,
+  critical: false,
+  hintMove: null,
+  hintsLeft: null,
+  takebacksLeft: null,
+  pendingConfirm: null,
+  showEval: true,
+};
 
 export interface PlayState {
   connection: 'closed' | 'connecting' | 'open';
@@ -31,6 +59,7 @@ export interface PlayState {
   opponentConnected: boolean;
   clockSyncAt: number; // Date.now() when clocks last arrived
   error: string | null;
+  coach: CoachState;
 }
 
 let state: PlayState = {
@@ -43,6 +72,7 @@ let state: PlayState = {
   opponentConnected: true,
   clockSyncAt: 0,
   error: null,
+  coach: COACH_INIT,
 };
 
 const listeners = new Set<() => void>();
@@ -77,7 +107,13 @@ function handleMessage(msg: { type: string; data: Record<string, unknown> }) {
     case 'queue:matched': {
       const m = d as { game_id: number; color: 'w' | 'b'; opponent: PlayState['opponent'] };
       sessionStorage.setItem('activeGameId', String(m.game_id));
-      setState({ phase: 'playing', myColor: m.color, opponent: m.opponent, over: null });
+      setState({
+        phase: 'playing',
+        myColor: m.color,
+        opponent: m.opponent,
+        over: null,
+        coach: { ...COACH_INIT },
+      });
       break;
     }
     case 'game:state':
@@ -109,6 +145,56 @@ function handleMessage(msg: { type: string; data: Record<string, unknown> }) {
     case 'game:opponent_connection':
       setState({ opponentConnected: (d as { connected: boolean }).connected });
       break;
+    case 'coach:info': {
+      const info = d as {
+        eval_cp?: number;
+        tag?: string;
+        note?: string;
+        critical?: boolean;
+        hints_left?: number | null;
+        takebacks_left?: number | null;
+      };
+      setState({
+        coach: {
+          ...state.coach,
+          evalCp: info.eval_cp ?? state.coach.evalCp,
+          tag: info.tag ?? null,
+          note: info.note ?? null,
+          critical: info.critical ?? false,
+          hintsLeft: info.hints_left ?? null,
+          takebacksLeft: info.takebacks_left ?? null,
+          hintMove: null, // a new position invalidates the old hint arrow
+        },
+      });
+      break;
+    }
+    case 'coach:hint': {
+      const h = d as { move: string; hints_left: number | null };
+      setState({
+        coach: { ...state.coach, hintMove: h.move, hintsLeft: h.hints_left ?? null },
+      });
+      break;
+    }
+    case 'coach:premove_verdict': {
+      const v = d as { from: string; to: string; promo: string; ok: boolean; tag?: string };
+      if (v.ok) {
+        send('game:move', {
+          game_id: state.game?.game_id,
+          from: v.from,
+          to: v.to,
+          promo: v.promo,
+        });
+        setState({ coach: { ...state.coach, pendingConfirm: null } });
+      } else {
+        setState({
+          coach: {
+            ...state.coach,
+            pendingConfirm: { from: v.from, to: v.to, promo: v.promo, tag: v.tag },
+          },
+        });
+      }
+      break;
+    }
     case 'error':
       setState({ error: (d as { message: string }).message });
       setTimeout(() => setState({ error: null }), 3500);
@@ -156,10 +242,12 @@ export async function startBotGame(
   baseMin: number | null,
   incSec: number,
   rated: boolean,
+  coachLevel: number | null = null,
 ): Promise<void> {
   const { api } = await import('../../lib/api');
   const r = await api.post<{ game_id: number }>('/api/v1/games', {
     bot_level: level,
+    coach_level: coachLevel,
     time_control: { base_min: baseMin, inc_sec: incSec },
     rated,
   });
@@ -167,12 +255,46 @@ export async function startBotGame(
   setState({
     phase: 'playing',
     myColor: 'w',
-    opponent: { username: `Stockfish · Bot ${level}`, rating: BOT_ANCHORS[level] },
+    opponent: {
+      username: coachLevel ? `Coach L${coachLevel} · Bot ${level}` : `Stockfish · Bot ${level}`,
+      rating: BOT_ANCHORS[level],
+    },
     over: null,
     game: null,
+    coach: { ...COACH_INIT },
   });
   connect();
   rejoinActive();
+}
+
+/** L1 routes through the blunder check; everyone else moves directly. */
+export function sendMoveSmart(from: string, to: string, promo = ''): void {
+  const coachLevel = state.game?.coach_level;
+  if (coachLevel === 1) {
+    send('coach:premove', { game_id: state.game?.game_id, from, to, promo });
+  } else {
+    sendMove(from, to, promo);
+  }
+}
+
+export function confirmPendingMove(play: boolean): void {
+  const pending = state.coach.pendingConfirm;
+  setState({ coach: { ...state.coach, pendingConfirm: null } });
+  if (play && pending) {
+    sendMove(pending.from, pending.to, pending.promo);
+  }
+}
+
+export function requestHint(): void {
+  if (state.game) send('coach:hint', { game_id: state.game.game_id });
+}
+
+export function requestTakeback(): void {
+  if (state.game) send('coach:takeback', { game_id: state.game.game_id });
+}
+
+export function toggleEval(): void {
+  setState({ coach: { ...state.coach, showEval: !state.coach.showEval } });
 }
 
 export function joinQueue(baseMin: number | null, incSec: number, rated: boolean): void {
@@ -206,5 +328,12 @@ export function respondDraw(accept: boolean): void {
 }
 
 export function backToLobby(): void {
-  setState({ phase: 'idle', game: null, over: null, myColor: null, opponent: null });
+  setState({
+    phase: 'idle',
+    game: null,
+    over: null,
+    myColor: null,
+    opponent: null,
+    coach: { ...COACH_INIT },
+  });
 }

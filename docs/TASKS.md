@@ -102,13 +102,13 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress / partially done (note why
 - [~] 5.1 Engine service: stockfish UCI pool (async python-chess, ENGINE_POOL_SIZE=2), /botmove /analyse /review, acquire timeout → 503. **Verified live in container (level-8 opens e4; analysis finds Nf6 defense).** Still todo: priority lanes, Prometheus metrics on the engine app
 - [x] 5.2 Bot levels 1–8 (skill/depth/time caps + blunder_p randomness for 1–3) in `engine/app/main.py`; anchor Elo table (600→2300) in `backend/app/chess/engine_client.py`
 - [x] 5.3 Bot Arena: POST /api/v1/games (BOT/LEARN modes), bot driver (engine call outside the game lock), anchor-Elo at game end, lobby UI (opponent toggle + level picker 1–8). **Verified live vs real Stockfish through nginx: bot played the Scandinavian; resignation → −30 BOT Elo; move_events rows show user_id=human / NULL=bot in TimescaleDB**
-- [ ] 5.4 Post-game review pipeline: queued `/review`, per-ply eval+best+tag (book/great/good/inaccuracy/mistake/blunder), accuracy %; review UI with eval graph + click-through board
-- [ ] 5.5 Mode 2 Learn-by-Playing: coach engine channel (`coach:info`) computing live eval/threats/hints server-side
-- [ ] 5.6 Coach levels L1–L5 implemented exactly per PLAN §3 table (config-driven, one code path)
-- [ ] 5.7 Coach UI: eval bar, hint button w/ counters, blunder-confirm dialog (L1), move tags, takeback flow (rewinds server state)
-- [ ] 5.8 "Critical moment" detector for L5 (eval swing threshold ≥1.5 pawns)
-- [ ] 5.9 Engine failure degradation: bot games pause+retry, review jobs requeue; alert metric
-- [ ] 5.10 Tests: bot move sanity per level, review tag thresholds, coach-level config matrix
+- [x] 5.4 Review pipeline: Celery task `review.generate` (Redis broker; inline fallback when no broker for SQLite dev), engine /review computes per-ply win%-drop tags + lichess-formula accuracy; Archive UI: request→poll→accuracies+tagged moves. **Verified live: real worker+Stockfish returned 96.8%/91.3%.** *Eval-graph + click-through board UI deferred to Phase 8 profile work*
+- [x] 5.5 Learn-by-Playing: `coach:info` after every ply (eval, win%-drop tag), baseline eval on rejoin; human=white; engine math shared with review so live and post-game tags agree
+- [x] 5.6 Coach L1–L5 config-driven in `services/coach.py` (single `build_info` filter); hints/takebacks budgets tracked on LiveGame
+- [x] 5.7 Coach UI (`CoachPanel`): eval readout (L1/L2 always, L3 toggle), tag chips w/ L1 explanations, hint button+arrow+counter, takeback (server rewinds 2 plies), **L1 premove blunder-confirm ("the coach winces") — all verified live vs real Stockfish through nginx :8080**
+- [x] 5.8 L5 critical ping: |win% swing| ≥15 → neutral "critical moment" (build_info)
+- [~] 5.9 Degradation: EngineUnavailable → bot move logged+skipped (retriggered on rejoin), coach silently skips, review 404s politely; **self-healing engine pool (respawn on EngineTerminatedError) + illegal-position 400 guard — a segfaulted stockfish corpse was poisoning the pool (exit -11). Alert metric → Phase 9**
+- [x] 5.10 Tests: 37 backend (coach level matrix, tags/hints/takeback flow, premove verdicts, review inline pipeline — all vs scripted fake engine) + 6 engine-container tests vs REAL stockfish (legal botmove ×8 levels, analyse, review tags 2.g4?? as blunder). Dev-compose now mounts engine/tests; vite watcher needs VITE_POLL=1 on Windows bind mounts (fixed in compose)
 
 **DoD:** play L1 coached game and see hints/warnings work; beat bot 1 in arena and see bot-Elo change; finished games get reviews with accuracy.
 

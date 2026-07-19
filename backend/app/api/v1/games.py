@@ -93,3 +93,56 @@ async def get_game(game_id: int, user: CurrentUser, db: DbDep) -> GameDetail:
     if row is None:
         raise AppError(404, "not_found", "No such game")
     return GameDetail.model_validate(row)
+
+
+class ReviewOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    game_id: int
+    moves_analysis: list[Any]
+    accuracy_w: float | None
+    accuracy_b: float | None
+    generated_at: datetime
+
+
+def _broker_reachable() -> bool:
+    from app.workers.celery_app import celery
+
+    try:
+        with celery.connection_for_write() as conn:
+            conn.ensure_connection(max_retries=0, timeout=2)
+        return True
+    except Exception:  # noqa: BLE001 — any broker trouble → inline fallback
+        return False
+
+
+@router.post("/{game_id}/review", status_code=202)
+async def request_review(game_id: int, user: CurrentUser, db: DbDep) -> dict[str, str]:
+    from app.models import GameReview
+    from app.workers.tasks import generate_review, generate_review_async
+
+    row = await db.get(Game, game_id)
+    if row is None:
+        raise AppError(404, "not_found", "No such game")
+    if user.id not in (row.white_id, row.black_id):
+        raise AppError(403, "forbidden", "Only players can request a review")
+    if row.result is None:
+        raise AppError(409, "not_finished", "Finish the game first")
+    if await db.get(GameReview, game_id) is not None:
+        return {"status": "ready"}
+    if _broker_reachable():
+        generate_review.delay(game_id)
+        return {"status": "queued"}
+    # No broker (SQLite/no-Redis dev): do it inline so the feature still works.
+    ok = await generate_review_async(game_id)
+    return {"status": "ready" if ok else "failed"}
+
+
+@router.get("/{game_id}/review")
+async def get_review(game_id: int, user: CurrentUser, db: DbDep) -> ReviewOut:
+    from app.models import GameReview
+
+    review = await db.get(GameReview, game_id)
+    if review is None:
+        raise AppError(404, "no_review", "No review yet — request one first")
+    return ReviewOut.model_validate(review)
