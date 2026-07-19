@@ -1,5 +1,6 @@
 """/ws/game — the online-play socket. Contract in docs/ARCHITECTURE.md §5."""
 
+import asyncio
 from typing import Any
 
 import jwt as pyjwt
@@ -34,9 +35,17 @@ async def _authenticate(ws: WebSocket) -> int | None:
     return int(payload["sub"])
 
 
-async def _on_game_over(game: LiveGame, payload: dict[str, Any]) -> None:
+async def on_game_over(game: LiveGame, payload: dict[str, Any]) -> None:
+    """Shared with the REST layer (bot-game creation passes it as on_over)."""
     await manager.send_room(game.id, {"type": "game:over", "data": payload})
     manager.drop_room(game.id)
+
+
+async def _drive_bot(game: LiveGame) -> None:
+    async def notify(payload: dict[str, Any]) -> None:
+        await manager.send_room(game.id, {"type": "game:move", "data": payload})
+
+    await game_service.drive_bot(game, notify)
 
 
 async def _start_game(
@@ -49,7 +58,7 @@ async def _start_game(
         rated=rated,
         base_min=base_min,
         inc_sec=inc_sec,
-        on_over=_on_game_over,
+        on_over=on_game_over,
     )
     manager.join_room(game.id, a_id)
     manager.join_room(game.id, b_id)
@@ -124,6 +133,8 @@ async def _handle(user_id: int, msg: dict[str, Any]) -> dict[str, Any] | None:
             )
         manager.join_room(game.id, user_id)  # players and spectators alike
         await manager.send_user(user_id, {"type": "game:state", "data": game.state_payload()})
+        if game.bot_level is not None:
+            asyncio.create_task(_drive_bot(game))  # noqa: RUF006 — fire and forget
         return None
 
     if game is None:
@@ -133,8 +144,11 @@ async def _handle(user_id: int, msg: dict[str, Any]) -> dict[str, Any] | None:
         if mtype == "game:move":
             uci = f"{data.get('from', '')}{data.get('to', '')}{data.get('promo', '')}"
             payload = await game_service.make_move(game, user_id, uci)
-            if payload.get("status") == "active":
-                await manager.send_room(game.id, {"type": "game:move", "data": payload})
+            # Always broadcast — clients need the FINAL position too (game:over
+            # has already been sent by on_over when the move ended the game).
+            await manager.send_room(game.id, {"type": "game:move", "data": payload})
+            if payload.get("status") == "active" and game.bot_level is not None:
+                asyncio.create_task(_drive_bot(game))  # noqa: RUF006
         elif mtype == "game:resign":
             await game_service.resign(game, user_id)
         elif mtype == "game:draw_offer":

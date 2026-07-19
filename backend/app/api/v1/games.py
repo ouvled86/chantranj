@@ -1,17 +1,49 @@
-"""Game history (finished games live in the DB; live games speak WebSocket)."""
+"""Games REST: create bot games (Arena/Learn) + history. Live play speaks WebSocket."""
 
 from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Query
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import or_, select
 
 from app.api.deps import CurrentUser, DbDep
 from app.core.errors import AppError
-from app.models import Game
+from app.models import Game, GameMode
+from app.services import games as game_service
+from app.ws.game import on_game_over
 
 router = APIRouter(prefix="/games", tags=["games"])
+
+
+class TimeControlIn(BaseModel):
+    base_min: float | None = Field(default=None, ge=0.01, le=180)
+    inc_sec: int = Field(default=0, ge=0, le=60)
+
+
+class CreateBotGameIn(BaseModel):
+    bot_level: int = Field(ge=1, le=8)
+    coach_level: int | None = Field(default=None, ge=1, le=5)  # set → LEARN mode
+    time_control: TimeControlIn = TimeControlIn()
+    rated: bool = True  # Arena only; Learn games are never rated
+
+
+@router.post("", status_code=201)
+async def create_bot_game(data: CreateBotGameIn, user: CurrentUser) -> dict[str, int]:
+    """Human plays white vs the engine. Attach via /ws/game + game:rejoin."""
+    mode = GameMode.LEARN if data.coach_level is not None else GameMode.BOT
+    game = await game_service.create_game(
+        white_id=user.id,
+        black_id=None,
+        rated=data.rated and mode == GameMode.BOT,
+        base_min=data.time_control.base_min,
+        inc_sec=data.time_control.inc_sec,
+        mode=mode,
+        bot_level=data.bot_level,
+        coach_level=data.coach_level,
+        on_over=on_game_over,
+    )
+    return {"game_id": game.id}
 
 
 class GameOut(BaseModel):

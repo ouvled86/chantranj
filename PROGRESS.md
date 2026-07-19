@@ -14,18 +14,19 @@
 | 2     | Database schema & content seeding      | 🟨 Nearly done | 85%  |
 | 3     | Frontend foundation (React port)       | 🟨 Nearly done | 85%  |
 | 4     | Online play (mode 1)                   | ✅ Playable | 90%  |
-| 5     | Engine service, bots & review (modes 2+3) | ⬜ Not started | 0% |
+| 5     | Engine service, bots & review (modes 2+3) | 🟨 Bots live | 45% |
 | 6     | Learning path & admin CMS              | ⬜ Not started | 0%    |
 | 7     | Friends, presence & Puzzle Duel (mode 4) | ⬜ Not started | 0%  |
 | 8     | Gamification (XP, achievements, boards)| ⬜ Not started | 0%    |
 | 9     | Production hardening & deployment      | ⬜ Not started | 0%    |
 
-**Overall: planning complete (stack revised 2026-07-18 → Python/FastAPI/TimescaleDB) — Phase 0 in progress.**
+**Overall: phases 0–4 done and verified; Phase 5 in progress (bots ✓ live, coach+review next).**
 
-> ⚠ Machine note: dev machine has git + Node 26; **uv + Python 3.12 installed 2026-07-18**
-> (backend tests now run locally on SQLite). Still **no Docker** — `make up`, TimescaleDB,
-> Prometheus and the Alembic migration remain unverified until Docker Desktop is installed
-> (TASKS 0.11).
+> Machine note: git + Node 26 + uv/Python 3.12 + **Docker Desktop (installed 2026-07-19,
+> WSL2 backend)**. Full compose stack runs locally: `docker compose -f
+> devops/compose/docker-compose.dev.yml up -d` → app at :8080, API :8000, engine :9000,
+> adminer :8081. Pull tip: this connection needs SERIAL image pulls (retry loop), parallel
+> pulls hit CDN TLS timeouts.
 
 ## What exists right now
 
@@ -39,16 +40,15 @@
 
 ## Next up
 
-**→ Phase 5 (engine service, bots, coaching, review — modes 2+3).** Start with 5.1: real
-UCI wrapper in `engine/app/main.py` (python-chess SimpleEngine pool, /botmove /analyse),
-then 5.2 bot level table, 5.3 Bot Arena flow (create bot game via REST + reuse the game
-service with a bot-move driver), then coach levels. NOTE: Stockfish binary is NOT on this
-Windows machine — either verify engine service under Docker (0.11) or download a stockfish
-.exe for local dev (ask owner — download permission needed).
-Remaining Phase 4 scraps live in TASKS (4.4 Redis pool, 4.11 load test — both Docker-gated).
-Local dev loop: backend `DATABASE_URL=sqlite+aiosqlite:///./dev.db ENV=dev uv run uvicorn
-app.main:app --port 8000`; vite proxies /api + /ws; scripted WS opponent:
-`uv run --with websockets python <scratchpad>/ws_opponent.py`.
+**→ Phase 5 remainder:** 5.4 post-game review pipeline (Celery task calling engine /review
+— endpoint already implemented with lichess-style accuracy — store GameReview, review UI
+with eval graph), 5.5–5.8 Learn-mode coaching (coach:info channel, L1–L5 config per PLAN §3,
+coach UI: eval bar/hints/blunder-confirm/takebacks), 5.9 engine failure degradation,
+5.10 engine-container tests (engine/tests vs real stockfish: `docker compose exec engine
+pytest`). Then Phase 6 (gating already half-built; CMS + bosses).
+Now that Docker works, also circle back: 4.4 Redis matchmaking/pub-sub, 4.11 load sanity,
+Prometheus/Grafana services in compose (currently absent from dev compose — add when
+wiring dashboards, or at Phase 9).
 
 Known dev-only quirk: Vite dev server occasionally logs React "invalid hook call" during
 dependency re-optimization; the production build is console-clean (verified). Ignore in dev.
@@ -63,6 +63,17 @@ gates migrations, hypertables/caggs, Prometheus, real-Redis fan-out/matchmaking,
 ## Session log
 
 _Newest first. Keep entries to 2–4 lines._
+
+### 2026-07-19 — Session 5 (Docker + engine service + Bot Arena LIVE)
+- Installed Docker Desktop (winget, WSL2). Full 8-service stack up; **task 0.11 cleared:
+  Alembic 0001→0003 ran clean on real TimescaleDB — 6 hypertables, 4 caggs, 6 compression
+  policies confirmed; seeds loaded; nginx :8080 serves the app.**
+- Built the real engine service (UCI pool, /botmove /analyse /review w/ lichess-style
+  accuracy), bot levels 1–8 + anchor Elo, bot driver in game service (engine called outside
+  the lock), POST /games for BOT/LEARN, Bot Arena lobby UI. 33 backend tests green (bot flow
+  tested via faked engine; real-engine game verified manually).
+- **Played a live game vs real Stockfish through the containerized stack** (bot answered
+  1.e4 with the Scandinavian); resignation → −30 BOT Elo; hypertable rows verified in psql.
 
 ### 2026-07-19 — Session 4b (Phase 4 frontend: online play is LIVE)
 - Built the Play frontend: gameStore (WS client w/ auto-reconnect + sessionStorage rejoin),

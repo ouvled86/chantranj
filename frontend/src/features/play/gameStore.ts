@@ -83,7 +83,13 @@ function handleMessage(msg: { type: string; data: Record<string, unknown> }) {
     case 'game:state':
     case 'game:move': {
       const g = d as ServerGameState;
-      setState({ game: g, clockSyncAt: Date.now(), phase: 'playing' });
+      // The final move can arrive right after game:over — update the board
+      // but never resurrect a finished game.
+      setState({
+        game: g,
+        clockSyncAt: Date.now(),
+        ...(state.phase !== 'over' ? { phase: 'playing' as const } : {}),
+      });
       break;
     }
     case 'game:draw_offer': {
@@ -132,6 +138,41 @@ export function connect(): void {
       setTimeout(connect, 1000);
     }
   };
+}
+
+export const BOT_ANCHORS: Record<number, number> = {
+  1: 600, 2: 800, 3: 1000, 4: 1200, 5: 1400, 6: 1700, 7: 2000, 8: 2300,
+};
+
+function rejoinActive(): void {
+  const id = sessionStorage.getItem('activeGameId');
+  if (id && socket?.readyState === WebSocket.OPEN) {
+    send('game:rejoin', { game_id: Number(id) });
+  }
+}
+
+export async function startBotGame(
+  level: number,
+  baseMin: number | null,
+  incSec: number,
+  rated: boolean,
+): Promise<void> {
+  const { api } = await import('../../lib/api');
+  const r = await api.post<{ game_id: number }>('/api/v1/games', {
+    bot_level: level,
+    time_control: { base_min: baseMin, inc_sec: incSec },
+    rated,
+  });
+  sessionStorage.setItem('activeGameId', String(r.game_id));
+  setState({
+    phase: 'playing',
+    myColor: 'w',
+    opponent: { username: `Stockfish · Bot ${level}`, rating: BOT_ANCHORS[level] },
+    over: null,
+    game: null,
+  });
+  connect();
+  rejoinActive();
 }
 
 export function joinQueue(baseMin: number | null, incSec: number, rated: boolean): void {

@@ -3,6 +3,10 @@
 Every rule decision runs through python-chess here: legality, clocks, results.
 Active games live in process memory (single-worker correctness); finished games
 are durable in the DB. Redis-backed cross-worker fan-out is a Phase 9 concern.
+
+Bot games (modes BOT / LEARN): the human always plays white in v1, the engine
+plays black via drive_bot() — the engine call happens OUTSIDE the game lock so
+a slow Stockfish can never freeze move handling.
 """
 
 import asyncio
@@ -16,6 +20,8 @@ import chess
 import chess.pgn
 import structlog
 
+from app.chess import engine_client
+from app.chess.engine_client import BOT_ANCHOR_RATING, EngineUnavailable
 from app.core.security import now_utc
 from app.db.session import get_session_factory
 from app.models import Game, GameMode, GameResult, RatingMode
@@ -37,10 +43,13 @@ OverCallback = Callable[["LiveGame", dict[str, Any]], Awaitable[None]]
 class LiveGame:
     id: int
     white_id: int
-    black_id: int
+    black_id: int | None  # None = engine opponent
     rated: bool
     base_ms: int | None  # None = untimed
     inc_ms: int = 0
+    mode: GameMode = GameMode.ONLINE
+    bot_level: int | None = None
+    coach_level: int | None = None
     board: chess.Board = field(default_factory=chess.Board)
     white_ms: int = 0
     black_ms: int = 0
@@ -56,7 +65,7 @@ class LiveGame:
     def player_color(self, user_id: int) -> chess.Color | None:
         if user_id == self.white_id:
             return chess.WHITE
-        if user_id == self.black_id:
+        if self.black_id is not None and user_id == self.black_id:
             return chess.BLACK
         return None
 
@@ -84,6 +93,8 @@ class LiveGame:
             "draw_offer_by": self.draw_offer_by,
             "white_id": self.white_id,
             "black_id": self.black_id,
+            "bot_level": self.bot_level,
+            "coach_level": self.coach_level,
         }
 
 
@@ -94,17 +105,22 @@ def get_live(game_id: int) -> LiveGame | None:
 async def create_game(
     *,
     white_id: int,
-    black_id: int,
+    black_id: int | None,
     rated: bool,
     base_min: float | None,
     inc_sec: int,
+    mode: GameMode = GameMode.ONLINE,
+    bot_level: int | None = None,
+    coach_level: int | None = None,
     on_over: OverCallback | None = None,
 ) -> LiveGame:
     async with get_session_factory()() as db:
         row = Game(
-            mode=GameMode.ONLINE,
+            mode=mode,
             white_id=white_id,
             black_id=black_id,
+            bot_level=bot_level,
+            coach_level=coach_level,
             rated=rated,
             time_control={"base_min": base_min, "inc_sec": inc_sec},
         )
@@ -120,6 +136,9 @@ async def create_game(
         rated=rated,
         base_ms=base_ms,
         inc_ms=inc_sec * 1000,
+        mode=mode,
+        bot_level=bot_level,
+        coach_level=coach_level,
         white_ms=base_ms or 0,
         black_ms=base_ms or 0,
         on_over=on_over,
@@ -127,7 +146,15 @@ async def create_game(
     _registry[game.id] = game
     if base_ms is not None:
         game.timeout_task = asyncio.create_task(_watchdog(game))
-    log.info("game_created", game_id=game.id, white=white_id, black=black_id, rated=rated)
+    log.info(
+        "game_created",
+        game_id=game.id,
+        mode=mode.value,
+        white=white_id,
+        black=black_id,
+        bot_level=bot_level,
+        rated=rated,
+    )
     return game
 
 
@@ -138,7 +165,7 @@ class MoveError(Exception):
 
 
 async def make_move(game: LiveGame, user_id: int, uci: str) -> dict[str, Any]:
-    """Validate + apply. Returns the broadcast payload. Raises MoveError."""
+    """Validate + apply a HUMAN move. Returns the broadcast payload."""
     async with game.lock:
         if game.status != "active":
             raise MoveError("game_over", "The game is finished")
@@ -147,73 +174,106 @@ async def make_move(game: LiveGame, user_id: int, uci: str) -> dict[str, Any]:
             raise MoveError("not_a_player", "You are not playing this game")
         if game.board.turn != color:
             raise MoveError("not_your_turn", "Not your turn")
+        return await _apply_locked(game, uci, user_id, color)
 
-        try:
-            move = chess.Move.from_uci(uci)
-        except ValueError as exc:
-            raise MoveError("bad_move", "Unreadable move") from exc
-        # Auto-queen bare promotions arriving without a piece suffix.
-        if (
-            move.promotion is None
-            and game.board.piece_type_at(move.from_square) == chess.PAWN
-            and chess.square_rank(move.to_square) in (0, 7)
-        ):
-            move = chess.Move(move.from_square, move.to_square, promotion=chess.QUEEN)
-        if move not in game.board.legal_moves:
-            raise MoveError("illegal", "Illegal move")
 
-        # Clocks
-        mover_clock: int | None = None
-        if game.base_ms is not None:
-            elapsed = int((time.monotonic() - game.turn_started) * 1000)
-            if color == chess.WHITE:
-                game.white_ms -= elapsed
-                if game.white_ms <= 0:
-                    await _finish_locked(game, GameResult.BLACK, "timeout")
-                    return game.state_payload()
-                game.white_ms += game.inc_ms
-                mover_clock = game.white_ms
-            else:
-                game.black_ms -= elapsed
-                if game.black_ms <= 0:
-                    await _finish_locked(game, GameResult.WHITE, "timeout")
-                    return game.state_payload()
-                game.black_ms += game.inc_ms
-                mover_clock = game.black_ms
+async def play_bot_move(game: LiveGame, uci: str) -> dict[str, Any] | None:
+    """Apply an engine move (bot = black). Returns None if the moment passed."""
+    async with game.lock:
+        if game.status != "active" or game.bot_level is None:
+            return None
+        if game.board.turn != chess.BLACK:
+            return None
+        return await _apply_locked(game, uci, None, chess.BLACK)
 
-        san = game.board.san(move)
-        game.board.push(move)
-        game.moves.append((move.uci(), san))
-        game.turn_started = time.monotonic()
-        game.draw_offer_by = None
-        _reschedule_watchdog(game)
 
-        await writer.record_move(
-            game_id=game.id,
-            user_id=user_id,
-            ply=len(game.moves),
-            side="w" if color == chess.WHITE else "b",
-            uci=move.uci(),
-            san=san,
-            clock_ms=mover_clock,
-        )
+async def drive_bot(
+    game: LiveGame, notify: Callable[[dict[str, Any]], Awaitable[None]] | None = None
+) -> None:
+    """Fetch + apply the engine reply if it's the bot's turn. Engine call runs
+    WITHOUT the game lock; the apply step revalidates."""
+    if game.bot_level is None or game.status != "active" or game.board.turn != chess.BLACK:
+        return
+    try:
+        uci = await engine_client.botmove(game.board.fen(), game.bot_level)
+    except EngineUnavailable as exc:
+        log.warning("bot_move_failed", game_id=game.id, error=str(exc))
+        return
+    payload = await play_bot_move(game, uci)
+    if payload is not None and notify is not None:
+        await notify(payload)  # final position included even if the bot just mated
 
-        outcome = game.board.outcome(claim_draw=True)
-        if outcome is not None:
-            if outcome.winner is None:
-                await _finish_locked(game, GameResult.DRAW, outcome.termination.name.lower())
-            else:
-                await _finish_locked(
-                    game,
-                    GameResult.WHITE if outcome.winner == chess.WHITE else GameResult.BLACK,
-                    outcome.termination.name.lower(),
-                )
 
-        payload = game.state_payload()
-        payload["san"] = san
-        payload["uci"] = move.uci()
-        payload["by"] = "w" if color == chess.WHITE else "b"
-        return payload
+async def _apply_locked(
+    game: LiveGame, uci: str, user_id: int | None, color: chess.Color
+) -> dict[str, Any]:
+    """Caller holds game.lock and has validated the mover."""
+    try:
+        move = chess.Move.from_uci(uci)
+    except ValueError as exc:
+        raise MoveError("bad_move", "Unreadable move") from exc
+    # Auto-queen bare promotions arriving without a piece suffix.
+    if (
+        move.promotion is None
+        and game.board.piece_type_at(move.from_square) == chess.PAWN
+        and chess.square_rank(move.to_square) in (0, 7)
+    ):
+        move = chess.Move(move.from_square, move.to_square, promotion=chess.QUEEN)
+    if move not in game.board.legal_moves:
+        raise MoveError("illegal", "Illegal move")
+
+    # Clocks
+    mover_clock: int | None = None
+    if game.base_ms is not None:
+        elapsed = int((time.monotonic() - game.turn_started) * 1000)
+        if color == chess.WHITE:
+            game.white_ms -= elapsed
+            if game.white_ms <= 0:
+                await _finish_locked(game, GameResult.BLACK, "timeout")
+                return game.state_payload()
+            game.white_ms += game.inc_ms
+            mover_clock = game.white_ms
+        else:
+            game.black_ms -= elapsed
+            if game.black_ms <= 0:
+                await _finish_locked(game, GameResult.WHITE, "timeout")
+                return game.state_payload()
+            game.black_ms += game.inc_ms
+            mover_clock = game.black_ms
+
+    san = game.board.san(move)
+    game.board.push(move)
+    game.moves.append((move.uci(), san))
+    game.turn_started = time.monotonic()
+    game.draw_offer_by = None
+    _reschedule_watchdog(game)
+
+    await writer.record_move(
+        game_id=game.id,
+        user_id=user_id,
+        ply=len(game.moves),
+        side="w" if color == chess.WHITE else "b",
+        uci=move.uci(),
+        san=san,
+        clock_ms=mover_clock,
+    )
+
+    outcome = game.board.outcome(claim_draw=True)
+    if outcome is not None:
+        if outcome.winner is None:
+            await _finish_locked(game, GameResult.DRAW, outcome.termination.name.lower())
+        else:
+            await _finish_locked(
+                game,
+                GameResult.WHITE if outcome.winner == chess.WHITE else GameResult.BLACK,
+                outcome.termination.name.lower(),
+            )
+
+    payload = game.state_payload()
+    payload["san"] = san
+    payload["uci"] = move.uci()
+    payload["by"] = "w" if color == chess.WHITE else "b"
+    return payload
 
 
 async def resign(game: LiveGame, user_id: int) -> None:
@@ -231,6 +291,7 @@ async def offer_draw(game: LiveGame, user_id: int) -> None:
     async with game.lock:
         if game.status != "active" or game.player_color(user_id) is None:
             raise MoveError("not_a_player", "Cannot offer a draw here")
+        # Bots decline politely by ignoring; humans get the banner.
         game.draw_offer_by = user_id
 
 
@@ -318,7 +379,11 @@ async def _finish_locked(game: LiveGame, result: GameResult, reason: str) -> Non
     for task in game.disconnect_tasks.values():
         _cancel(task)
 
-    delta_w = delta_b = None
+    delta_w: int | None = None
+    delta_b: int | None = None
+    decisive = result in (GameResult.WHITE, GameResult.BLACK, GameResult.DRAW)
+    score = {GameResult.WHITE: 1.0, GameResult.BLACK: 0.0, GameResult.DRAW: 0.5}.get(result)
+
     async with get_session_factory()() as db:
         row = await db.get(Game, game.id)
         if row is not None:
@@ -326,24 +391,37 @@ async def _finish_locked(game: LiveGame, result: GameResult, reason: str) -> Non
             row.end_reason = reason
             row.ended_at = now_utc()
             row.pgn = _pgn(game, result)
-            if game.rated and result in (GameResult.WHITE, GameResult.BLACK, GameResult.DRAW):
-                score = {GameResult.WHITE: 1.0, GameResult.BLACK: 0.0, GameResult.DRAW: 0.5}[
-                    result
-                ]
-                delta_w, delta_b = await elo.apply_result(
-                    db, RatingMode.ONLINE, game.white_id, game.black_id, score
-                )
+
+            if game.rated and decisive and score is not None:
+                if game.mode == GameMode.ONLINE and game.black_id is not None:
+                    delta_w, delta_b = await elo.apply_result(
+                        db, RatingMode.ONLINE, game.white_id, game.black_id, score
+                    )
+                elif game.mode == GameMode.BOT and game.bot_level is not None:
+                    anchor = BOT_ANCHOR_RATING[game.bot_level]
+                    rating = await elo.get_or_create_rating(
+                        db, game.white_id, RatingMode.BOT
+                    )
+                    delta_w = elo.delta(rating.value, anchor, score, rating.games)
+                    rating.value += delta_w
+                    rating.games += 1
                 row.rating_delta_w = delta_w
                 row.rating_delta_b = delta_b
             await db.commit()
-            if delta_w is not None and delta_b is not None:
-                white = await elo.get_or_create_rating(db, game.white_id, RatingMode.ONLINE)
-                black = await elo.get_or_create_rating(db, game.black_id, RatingMode.ONLINE)
+
+            if delta_w is not None:
+                mode_name = "ONLINE" if game.mode == GameMode.ONLINE else "BOT"
+                white = await elo.get_or_create_rating(
+                    db, game.white_id, RatingMode(mode_name)
+                )
                 await db.commit()
                 await writer.record_rating(
-                    user_id=game.white_id, mode="ONLINE", value=white.value,
+                    user_id=game.white_id, mode=mode_name, value=white.value,
                     delta=delta_w, game_id=game.id,
                 )
+            if delta_b is not None and game.black_id is not None:
+                black = await elo.get_or_create_rating(db, game.black_id, RatingMode.ONLINE)
+                await db.commit()
                 await writer.record_rating(
                     user_id=game.black_id, mode="ONLINE", value=black.value,
                     delta=delta_b, game_id=game.id,
@@ -363,7 +441,7 @@ async def _finish_locked(game: LiveGame, result: GameResult, reason: str) -> Non
 
 def _pgn(game: LiveGame, result: GameResult) -> str:
     pgn_game = chess.pgn.Game.from_board(game.board)
-    pgn_game.headers["Event"] = "The Study — Online"
+    pgn_game.headers["Event"] = f"The Study — {game.mode.value.title()}"
     pgn_game.headers["Result"] = {
         GameResult.WHITE: "1-0",
         GameResult.BLACK: "0-1",

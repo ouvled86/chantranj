@@ -20,8 +20,8 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress / partially done (note why
 - [x] 0.7 `devops/compose/docker-compose.dev.yml`: timescaledb (timescale/timescaledb:latest-pg16 — lighter than -ha, caggs included), redis, backend (reload), worker (celery), engine, frontend (vite), nginx dev proxy :8080, adminer; volumes + healthchecks — up verify pending Docker (0.11)
 - [x] 0.8 Makefile: `up down logs ps migrate revision seed test lint fmt typecheck build prod-up prod-down` (+ `env` bootstrap); `.env.example` added
 - [x] 0.9 Root README.md (portfolio-facing, telemetry-mapping story) + CONTRIBUTING.md (conventions)
-- [ ] 0.10 GitHub repo created + pushed; branch protection on main — **needs owner: confirm repo name/visibility (gh auth)**
-- [ ] 0.11 **BLOCKER:** install Docker Desktop (or run on a Docker-capable machine), then `make up` and verify: backend /healthz + /docs, engine /healthz (stockfish:true), worker connects to redis, nginx :8080 serves frontend, adminer reaches timescaledb; run `make test`
+- [ ] 0.10 GitHub repo created + pushed — **deferred by owner (2026-07-19), revisit before Phase 9**
+- [x] 0.11 Docker Desktop installed (winget, WSL2 backend) 2026-07-19. Full stack verified: 8 services up (backend/worker/engine/timescaledb/redis/nginx/frontend/adminer); backend+engine healthz ✓ (stockfish:true, pool 2); **Alembic 0001→0003 clean on real TimescaleDB: 6 hypertables, 4 continuous aggregates, 6 compression policies confirmed via psql**; seeds into TimescaleDB ✓; nginx :8080 serves the app ✓. Gotcha: serial `docker pull` with retries beats parallel pulls on this connection (CDN TLS timeouts)
 
 **DoD:** `make up` gives a running dev stack; `curl :8000/healthz` OK from the backend container; FastAPI `/docs` loads; frontend dev page loads through nginx; committed & pushed.
 
@@ -99,9 +99,9 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress / partially done (note why
 
 ## Phase 5 — Engine service, bots & review (modes 2 + 3)
 
-- [ ] 5.1 Engine container: stockfish + UCI wrapper, worker pool, two priority lanes (interactive > batch), timeouts, /healthz, latency metrics
-- [ ] 5.2 Bot levels 1–8 mapping (skill level, depth/time caps; weighted-random imperfection for 1–3); documented table
-- [ ] 5.3 Mode 3 Bot Arena: create-game flow vs bot, separate Elo (bot ladder), rated toggle
+- [~] 5.1 Engine service: stockfish UCI pool (async python-chess, ENGINE_POOL_SIZE=2), /botmove /analyse /review, acquire timeout → 503. **Verified live in container (level-8 opens e4; analysis finds Nf6 defense).** Still todo: priority lanes, Prometheus metrics on the engine app
+- [x] 5.2 Bot levels 1–8 (skill/depth/time caps + blunder_p randomness for 1–3) in `engine/app/main.py`; anchor Elo table (600→2300) in `backend/app/chess/engine_client.py`
+- [x] 5.3 Bot Arena: POST /api/v1/games (BOT/LEARN modes), bot driver (engine call outside the game lock), anchor-Elo at game end, lobby UI (opponent toggle + level picker 1–8). **Verified live vs real Stockfish through nginx: bot played the Scandinavian; resignation → −30 BOT Elo; move_events rows show user_id=human / NULL=bot in TimescaleDB**
 - [ ] 5.4 Post-game review pipeline: queued `/review`, per-ply eval+best+tag (book/great/good/inaccuracy/mistake/blunder), accuracy %; review UI with eval graph + click-through board
 - [ ] 5.5 Mode 2 Learn-by-Playing: coach engine channel (`coach:info`) computing live eval/threats/hints server-side
 - [ ] 5.6 Coach levels L1–L5 implemented exactly per PLAN §3 table (config-driven, one code path)

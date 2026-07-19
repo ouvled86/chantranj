@@ -4,6 +4,7 @@ import { idxToSq, isWhitePiece, parseFEN, pseudoMoves } from '../../lib/chess';
 import { useAuth } from '../../lib/auth';
 import Clock from './Clock';
 import {
+  BOT_ANCHORS,
   backToLobby,
   joinQueue,
   leaveQueue,
@@ -11,6 +12,7 @@ import {
   resign,
   respondDraw,
   sendMove,
+  startBotGame,
   usePlayState,
 } from './gameStore';
 
@@ -34,14 +36,71 @@ function Lobby() {
   const play = usePlayState();
   const [tcIdx, setTcIdx] = useState(2); // 5+0
   const [rated, setRated] = useState(true);
+  const [opponent, setOpponent] = useState<'human' | 'bot'>('human');
+  const [botLevel, setBotLevel] = useState(3);
+  const [starting, setStarting] = useState(false);
   const tc = TIME_CONTROLS[tcIdx];
 
   return (
     <div className="max-w-xl">
-      <h1 className="font-display mb-1 text-3xl font-bold">Play Online</h1>
+      <h1 className="font-display mb-1 text-3xl font-bold">Play</h1>
       <p className="mb-6 font-display italic text-muted">
-        Human vs human — no engines, no hints. Post-game review arrives in Phase 5.
+        {opponent === 'human'
+          ? 'Human vs human — no engines, no hints.'
+          : 'The Bot Arena — no training wheels, rated against the ladder.'}
       </p>
+
+      <div className="mb-5">
+        <div className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
+          Opponent
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setOpponent('human')}
+            className={`rounded-xs border px-4 py-2 text-sm ${
+              opponent === 'human'
+                ? 'border-gold bg-gold/15 text-gold'
+                : 'border-walnut-line bg-walnut-800 hover:border-muted'
+            }`}
+          >
+            ♟ Human
+          </button>
+          <button
+            onClick={() => setOpponent('bot')}
+            className={`rounded-xs border px-4 py-2 text-sm ${
+              opponent === 'bot'
+                ? 'border-gold bg-gold/15 text-gold'
+                : 'border-walnut-line bg-walnut-800 hover:border-muted'
+            }`}
+          >
+            ⚙ Bot Arena
+          </button>
+        </div>
+      </div>
+
+      {opponent === 'bot' && (
+        <div className="mb-5">
+          <div className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
+            Bot strength
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((lvl) => (
+              <button
+                key={lvl}
+                onClick={() => setBotLevel(lvl)}
+                className={`rounded-xs border px-3 py-2 font-mono text-sm ${
+                  lvl === botLevel
+                    ? 'border-gold bg-gold/15 text-gold'
+                    : 'border-walnut-line bg-walnut-800 text-cream hover:border-muted'
+                }`}
+              >
+                {lvl}
+                <span className="ml-1.5 text-[10px] text-muted">{BOT_ANCHORS[lvl]}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="mb-5">
         <div className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
@@ -82,12 +141,27 @@ function Lobby() {
             Cancel
           </button>
         </div>
-      ) : (
+      ) : opponent === 'human' ? (
         <button
           onClick={() => joinQueue(tc.base, tc.inc, rated)}
           className="rounded-xs bg-gold px-6 py-3 font-bold text-walnut-950 hover:bg-[#e5b458]"
         >
           Find an opponent
+        </button>
+      ) : (
+        <button
+          disabled={starting}
+          onClick={async () => {
+            setStarting(true);
+            try {
+              await startBotGame(botLevel, tc.base, tc.inc, rated);
+            } finally {
+              setStarting(false);
+            }
+          }}
+          className="rounded-xs bg-gold px-6 py-3 font-bold text-walnut-950 hover:bg-[#e5b458] disabled:opacity-50"
+        >
+          {starting ? 'Setting up…' : `Challenge Bot ${botLevel}`}
         </button>
       )}
       {play.error && <p className="mt-4 text-sm text-wrong">{play.error}</p>}
