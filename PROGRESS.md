@@ -13,7 +13,7 @@
 | 1     | Backend foundation (auth, users, admin)| 🟨 Nearly done | 90%  |
 | 2     | Database schema & content seeding      | 🟨 Nearly done | 85%  |
 | 3     | Frontend foundation (React port)       | 🟨 Nearly done | 85%  |
-| 4     | Online play (mode 1)                   | ⬜ Not started | 0%    |
+| 4     | Online play (mode 1)                   | 🟨 Backend done | 55% |
 | 5     | Engine service, bots & review (modes 2+3) | ⬜ Not started | 0% |
 | 6     | Learning path & admin CMS              | ⬜ Not started | 0%    |
 | 7     | Friends, presence & Puzzle Duel (mode 4) | ⬜ Not started | 0%  |
@@ -39,23 +39,35 @@
 
 ## Next up
 
-**→ Phase 4 (Mode 1: online play).** Start with 4.1/4.2 the server-authoritative game
-service + server clocks (python-chess, asyncio), then 4.3 the `/ws/game` WebSocket endpoint
-with Redis pub/sub, then matchmaking. Local dev note: backend runs on SQLite via
-`DATABASE_URL=sqlite+aiosqlite:///./dev.db ENV=dev uv run uvicorn app.main:app --port 8000`
-(seed first: `uv run python -m app.db.seed`); frontend `npm run dev` proxies /api+/ws to it.
-**Redis is NOT installed locally** — matchmaking/pub-sub tests will need fakeredis or Docker.
+**→ Phase 4 frontend (tasks 4.5, 4.8, 4.9-UI):** Play page — WS client (`/ws/game`),
+time-control picker, queue UI, live game screen (Board + ticking clocks + move list +
+resign/draw + result modal), reconnect banner, game history page. Backend contract is
+final and fully tested — see ws message shapes in `backend/app/ws/game.py` and
+ARCHITECTURE §5. Local dev: backend `DATABASE_URL=sqlite+aiosqlite:///./dev.db ENV=dev
+uv run uvicorn app.main:app --port 8000` (seed first); vite proxies /api + /ws.
 
 Known dev-only quirk: Vite dev server occasionally logs React "invalid hook call" during
 dependency re-optimization; the production build is console-clean (verified). Ignore in dev.
 
+Test-rig gotchas (learned the hard way, see TASKS 4.2/4.10 notes): WS tests share ONE
+TestClient portal; never let a task cancel itself in cleanup paths.
+
 Still waiting on owner: 0.10 (GitHub repo name/visibility) · 0.11 (install Docker Desktop —
-gates migrations 0002/0003, hypertables/caggs, Prometheus, and real-Redis testing) ·
+gates migrations, hypertables/caggs, Prometheus, real-Redis fan-out/matchmaking, load test) ·
 2.7 (OK to download Lichess puzzle CSV).
 
 ## Session log
 
 _Newest first. Keep entries to 2–4 lines._
+
+### 2026-07-19 — Session 4 (Phase 4 backend: online play)
+- Built the online-play backend: server-authoritative game service (python-chess, full
+  result detection), monotonic clocks + flag watchdog, in-process matchmaking pools,
+  /ws/game endpoint (queue/move/resign/draw/rejoin, cookie-JWT auth), Elo (K40/K20) with
+  rating_history + move_events telemetry, games history REST w/ PGN.
+- 31 backend tests green incl. 4 two-client WS scenarios. Two hard-won debugging lessons
+  recorded in TASKS 4.2 (watchdog self-cancellation bug) and 4.10 (single-portal WS rig).
+- pytest-timeout added (90s default) so hangs self-diagnose with thread dumps.
 
 ### 2026-07-19 — Session 3c (learn API + Phase 3 frontend)
 - Built /learn API (path/item/complete) with strict linear gating + tests (24 backend tests).

@@ -81,17 +81,17 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress / partially done (note why
 
 ## Phase 4 — Mode 1: Online play
 
-- [ ] 4.1 Game service (server-authoritative): create/join, python-chess validation, move relay, result detection (mate/stale/50-move/3-fold/insufficient/timeout/resign/draw-agree); every accepted move writes a move_events telemetry row
-- [ ] 4.2 Server clocks (monotonic, per-game interval mgmt); increment support; flag detection
-- [ ] 4.3 WebSocket `/ws/game` endpoint: full contract per ARCHITECTURE §5 incl. rejoin with state resync; Redis pub/sub fan-out across workers
-- [ ] 4.4 Matchmaking: redis queue, rating band widening over time, anti-self-match, cancel
-- [ ] 4.5 Time control picker + custom FEN/Chess960 start options (FEN validated server-side; 960 castling = later stretch, disable castling rights for exotic FENs v1)
-- [ ] 4.6 Elo service: K=40 provisional (<30 games) else 20; applied atomically with game end; rating history rows
-- [ ] 4.7 Disconnect handling: 30s grace, abandon = loss (rated) / abort (<2 moves); reconnection banner UI
-- [ ] 4.8 Game UI: board + clocks + move list + draw/resign + result modal + rematch offer
-- [ ] 4.9 Game history page + PGN export/download; spectate-by-link (read-only socket join)
-- [ ] 4.10 Socket integration test: scripted 2-client game incl. flag and reconnect scenarios
-- [ ] 4.11 Load sanity: 50 concurrent bot-less games on dev machine without event-loop lag >100ms
+- [x] 4.1 Game service (server-authoritative, `services/games.py`): python-chess validation, result detection via `board.outcome(claim_draw=True)` (mate/stale/insufficient/75-move/5-fold + 50-move/3-fold auto-claim), resign, draw offer/accept; every accepted move → move_events telemetry
+- [x] 4.2 Server clocks: monotonic, increment support, per-game async watchdog for flag falls. **War story: watchdog self-cancelled inside `_finish_locked` (it cancels timeout_task = itself), CancelledError swallowed by its own suppress → flag games half-finished. Fix: `_cancel` never cancels `current_task`.**
+- [x] 4.3 WebSocket `/ws/game`: queue join/leave, move/resign/draw, rejoin+resync, opponent-connection events, cookie-JWT handshake auth (4401 close). **In-process fan-out (single-worker correct); Redis pub/sub variant = 0.11/Phase 9 when Docker exists**
+- [~] 4.4 Matchmaking: in-process FIFO pools per (TC, rated), anti-self-match, leave-on-disconnect. **Redis pool + rating-band widening pending Docker**
+- [ ] 4.5 Time control picker UI + custom FEN/960 options (frontend, next session)
+- [x] 4.6 Elo service: K=40 provisional/K=20, applied atomically at game end, deltas on game row + rating_history telemetry; unit-tested
+- [x] 4.7 Disconnect handling: 30s grace task → abandonment loss (abort if <2 moves); reconnect cancels grace. Banner UI pending frontend
+- [ ] 4.8 Game UI: board + clocks + move list + draw/resign + result modal (next session)
+- [~] 4.9 REST: GET /games (history, paginated) + /games/{id} incl. PGN — UI + spectate link pending
+- [x] 4.10 WS integration tests: 2-client scripted fool's mate w/ Elo assertions, illegal/out-of-turn rejection, flag fall, resignation (4 scenarios; reconnect scenario TODO). **Test-rig lesson: all WS sessions must share ONE portal loop — open sockets from a single entered TestClient with explicit Cookie headers.** pytest-timeout (90s) now default
+- [ ] 4.11 Load sanity: 50 concurrent games (do with Docker/real setup at 0.11)
 
 **DoD:** two browsers play a full rated blitz game with correct clocks, result, and Elo updates; history shows the game with PGN.
 

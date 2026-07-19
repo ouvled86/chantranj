@@ -54,6 +54,10 @@ def create_app() -> FastAPI:
     register_error_handlers(app)
     app.include_router(api_router)
 
+    from app.ws.game import router as ws_game_router
+
+    app.include_router(ws_game_router)
+
     Instrumentator(excluded_handlers=["/metrics", "/healthz", "/readyz"]).instrument(app).expose(
         app, include_in_schema=False
     )
