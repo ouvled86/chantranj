@@ -1,28 +1,41 @@
-/** Phase 0 placeholder shell — the full v1 design port happens in Phase 3. */
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import Layout from './components/Layout';
+import ItemPage from './features/learn/ItemPage';
+import PathPage from './features/learn/PathPage';
+import { AuthProvider, useAuth } from './lib/auth';
+import { LoginPage, RegisterPage } from './pages/AuthPages';
+import SettingsPage from './pages/SettingsPage';
+
+function Protected() {
+  const { user, loading } = useAuth();
+  if (loading)
+    return (
+      <main className="flex min-h-screen items-center justify-center">
+        <p className="font-display italic text-muted">Opening the Study…</p>
+      </main>
+    );
+  if (!user) return <Navigate to="/login" replace />;
+  return <Outlet />;
+}
+
 export default function App() {
   return (
-    <main className="flex min-h-screen items-center justify-center p-6">
-      <div className="max-w-lg text-center">
-        <div className="text-5xl text-gold" aria-hidden>
-          ♞
-        </div>
-        <h1 className="font-display mt-3 text-4xl font-bold">The Study</h1>
-        <p className="font-display mt-1 italic text-muted">Chess beyond the rules</p>
-
-        <div className="mt-8 rounded-sm bg-parchment p-5 text-left text-parchment-ink shadow-xl">
-          <p className="font-mono text-xs uppercase tracking-widest text-parchment-muted">
-            Scaffold check
-          </p>
-          <p className="mt-2 text-sm leading-relaxed">
-            Full-stack rebuild in progress (Phase 0). Backend: FastAPI + TimescaleDB · Realtime:
-            WebSockets + Redis · Engine: Stockfish · Observability: Prometheus + Grafana.
-          </p>
-        </div>
-
-        <p className="mt-6 font-mono text-xs text-muted">
-          v1 lessons still available in <code>legacy-v1/</code>
-        </p>
-      </div>
-    </main>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route element={<Protected />}>
+            <Route element={<Layout />}>
+              <Route index element={<Navigate to="/learn" replace />} />
+              <Route path="/learn" element={<PathPage />} />
+              <Route path="/learn/:slug" element={<ItemPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+            </Route>
+          </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }

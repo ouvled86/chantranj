@@ -23,8 +23,8 @@ log = structlog.get_logger()
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     configure_logging(settings.env)
-    if settings.env == "test":
-        # Tests run on SQLite without Alembic; create the schema in-loop.
+    if settings.env == "test" or settings.database_url.startswith("sqlite"):
+        # SQLite (tests / no-Docker local dev) skips Alembic; create schema in-loop.
         import app.models  # noqa: F401  (register models on Base.metadata)
         from app.db.base import Base
 

@@ -1,0 +1,125 @@
+/* Board — ported from legacy-v1/css/style.css, wired to the Tailwind theme vars. */
+
+.board-frame {
+  position: relative;
+  border: 10px solid #171106;
+  outline: 1px solid #52422b;
+  border-radius: 4px;
+  box-shadow:
+    0 24px 60px -20px rgba(0, 0, 0, 0.75),
+    0 4px 14px rgba(0, 0, 0, 0.5);
+}
+
+.board-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  aspect-ratio: 1;
+  user-select: none;
+  container-type: inline-size;
+}
+
+.board-grid.shake {
+  animation: board-shake 0.35s;
+}
+@keyframes board-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+
+.sq {
+  position: relative;
+  cursor: pointer;
+}
+.sq.light { background: var(--color-board-light); }
+.sq.dark { background: var(--color-board-dark); }
+
+.sq.marked::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(200, 80, 60, 0.4);
+  box-shadow: inset 0 0 0 3px rgba(200, 80, 60, 0.75);
+}
+.sq.selected { box-shadow: inset 0 0 0 3px var(--color-gold); }
+.sq.last-from::before,
+.sq.last-to::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(217, 164, 65, 0.3);
+}
+
+.piece {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10cqw;
+  line-height: 1;
+  z-index: 2;
+  pointer-events: none;
+}
+.piece.wp {
+  color: #faf3e3;
+  text-shadow:
+    0 1px 0 #6b5233, 0 -1px 0 #6b5233, 1px 0 0 #6b5233, -1px 0 0 #6b5233,
+    0 2px 3px rgba(0, 0, 0, 0.35);
+}
+.piece.bp {
+  color: #2a1f13;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.dot {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+.dot::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 22%;
+  height: 22%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: rgba(34, 26, 18, 0.45);
+}
+.dot.dot-capture::after {
+  width: 88%;
+  height: 88%;
+  background: none;
+  border: 4px solid rgba(34, 26, 18, 0.45);
+}
+
+.coord {
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  z-index: 1;
+  opacity: 0.75;
+}
+.coord-file { right: 3px; bottom: 1px; }
+.coord-rank { left: 3px; top: 2px; }
+.sq.light .coord { color: #8a6238; }
+.sq.dark .coord { color: #ecdcbb; }
+
+.board-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 4;
+}
+.arrow-line {
+  stroke: rgba(217, 164, 65, 0.85);
+  stroke-width: 13;
+  stroke-linecap: round;
+  opacity: 0.9;
+}

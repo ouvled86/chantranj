@@ -109,6 +109,14 @@ async def seed_dev_fixtures(db: AsyncSession) -> None:
 
 async def seed_all() -> None:
     settings = get_settings()
+    if settings.database_url.startswith("sqlite"):
+        # No-Docker local dev: ensure schema exists (postgres uses Alembic).
+        import app.models  # noqa: F401
+        from app.db.base import Base
+        from app.db.session import get_engine
+
+        async with get_engine().begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
     async with get_session_factory()() as db:
         await seed_curriculum(db)
         await seed_achievements(db)

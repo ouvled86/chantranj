@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./board.css";
 
 /* Design tokens ported from legacy-v1/css/style.css — the walnut study identity.
    Keep in sync when Phase 3 does the full component port. */

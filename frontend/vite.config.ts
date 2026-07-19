@@ -12,6 +12,13 @@ export default defineConfig({
       '/ws': { target: 'ws://localhost:8000', ws: true },
     },
   },
+  preview: {
+    port: 4300,
+    proxy: {
+      '/api': { target: 'http://localhost:8000', changeOrigin: true },
+      '/ws': { target: 'ws://localhost:8000', ws: true },
+    },
+  },
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],

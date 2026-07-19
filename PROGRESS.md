@@ -12,7 +12,7 @@
 | 0     | Monorepo scaffold & tooling            | 🟨 Nearly done | 85%  |
 | 1     | Backend foundation (auth, users, admin)| 🟨 Nearly done | 90%  |
 | 2     | Database schema & content seeding      | 🟨 Nearly done | 85%  |
-| 3     | Frontend foundation (React port)       | ⬜ Not started | 0%    |
+| 3     | Frontend foundation (React port)       | 🟨 Nearly done | 85%  |
 | 4     | Online play (mode 1)                   | ⬜ Not started | 0%    |
 | 5     | Engine service, bots & review (modes 2+3) | ⬜ Not started | 0% |
 | 6     | Learning path & admin CMS              | ⬜ Not started | 0%    |
@@ -39,17 +39,31 @@
 
 ## Next up
 
-**→ Phase 3 (frontend foundation: React port of v1).** Start 3.2 app shell + router, then
-3.3 auth pages against the live API, then 3.4 the `<Board/>` port from legacy-v1/js.
-(3.1 tokens already done in Phase 0's Tailwind theme.)
+**→ Phase 4 (Mode 1: online play).** Start with 4.1/4.2 the server-authoritative game
+service + server clocks (python-chess, asyncio), then 4.3 the `/ws/game` WebSocket endpoint
+with Redis pub/sub, then matchmaking. Local dev note: backend runs on SQLite via
+`DATABASE_URL=sqlite+aiosqlite:///./dev.db ENV=dev uv run uvicorn app.main:app --port 8000`
+(seed first: `uv run python -m app.db.seed`); frontend `npm run dev` proxies /api+/ws to it.
+**Redis is NOT installed locally** — matchmaking/pub-sub tests will need fakeredis or Docker.
+
+Known dev-only quirk: Vite dev server occasionally logs React "invalid hook call" during
+dependency re-optimization; the production build is console-clean (verified). Ignore in dev.
 
 Still waiting on owner: 0.10 (GitHub repo name/visibility) · 0.11 (install Docker Desktop —
-now also gates migrations 0002/0003 + hypertable/cagg verification) · 2.7 (OK to download
-Lichess puzzle CSV).
+gates migrations 0002/0003, hypertables/caggs, Prometheus, and real-Redis testing) ·
+2.7 (OK to download Lichess puzzle CSV).
 
 ## Session log
 
 _Newest first. Keep entries to 2–4 lines._
+
+### 2026-07-19 — Session 3c (learn API + Phase 3 frontend)
+- Built /learn API (path/item/complete) with strict linear gating + tests (24 backend tests).
+- Full React frontend: api client (CSRF + silent refresh), chess lib + Board port,
+  lesson/drill players, gated path page, auth pages, shell/sidebar, settings; 9 fe tests.
+- Verified LIVE end-to-end in browser (backend on local SQLite): login → complete lesson →
+  solve 2 drills → progress 3/27, unlock chain works. Prod build console-clean.
+- Left running for owner: backend :8000 (uvicorn bg), vite :5173, prod preview :4300.
 
 ### 2026-07-19 — Session 3b (Phase 2: schema, telemetry, seeds)
 - Full domain models (games/ratings/friendships/curriculum/gamification) + telemetry Core

@@ -65,17 +65,17 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress / partially done (note why
 
 ## Phase 3 — Frontend foundation (React port of v1)
 
-- [ ] 3.1 Design tokens: port css/style.css palette+type to Tailwind theme (walnut/parchment/gold identity preserved)
-- [ ] 3.2 App shell: router, sidebar layout, auth-aware nav, error boundary, toasts
-- [ ] 3.3 Auth pages: register, login, Google button, logout; session persistence via refresh; protected-route wrapper
-- [ ] 3.4 `<Board/>` component: port v1 renderer (orientation, marks, arrows SVG, dots, click+drag moves, promotion picker, a11y: keyboard square nav)
-- [ ] 3.5 Lesson player + drill player as components driven by `contentJson` (feature-parity with v1 incl. hints, movelist, shake)
-- [ ] 3.6 Learning path page: stages/items from API, progress states (locked/available/done) — gating enforced server-side, mirrored in UI
-- [ ] 3.7 Profile page v1: avatar, ratings placeholders, activity
-- [ ] 3.8 Settings page: account, board theme (2 alt boards), sound toggle
-- [ ] 3.9 Component tests for Board (move input, promotion, flip) + drill player (wrong-move flow)
+- [x] 3.1 Design tokens ported to Tailwind 4 `@theme` (done in Phase 0; board CSS ported as `styles/board.css` this phase)
+- [x] 3.2 App shell: react-router 7, sidebar layout (desktop + mobile drawer), auth-aware nav, protected routes — *error boundary + toasts deferred to Phase 4 polish*
+- [x] 3.3 Auth pages (parchment cards): register, login, Google button (503 till creds), logout; silent refresh-retry in the API client keeps sessions alive
+- [x] 3.4 `<Board/>` port: orientation flip, marks, SVG arrows, candidate dots, last-move, click input, auto-queen, shake — *drag input + underpromotion picker + keyboard a11y deferred (v1 parity is click-only)*
+- [x] 3.5 Lesson + drill players (state machines ported from v1 app.js): steps/fen-jumps, movelist jumping, ← → keys, 2-stage hints, wrong-move feedback, auto-replies, takeaways
+- [x] 3.6 Path page: 12 stages, DONE/AVAILABLE/LOCKED states from `/learn/path`, progress bar; gating enforced server-side (learn router built this phase, ahead of Phase 6 schedule)
+- [ ] 3.7 Profile page v1 — deferred to Phase 8 (profile v2 was always there; account info lives in Settings meanwhile)
+- [~] 3.8 Settings: account (username/avatar) ✓; board theme + sound toggle deferred
+- [x] 3.9 Tests: chess lib (5: castling, promotion, movegen) + Board component (4: render, flip, clicks, marks) = 9 green — *drill-player interaction test still todo*
 
-**DoD:** logged-in user can complete a seeded lesson and drill in the browser with progress persisted to Postgres; visual identity matches v1.
+**DoD:** verified live in browser (dev+prod builds): login as seeded user → complete K+Q lesson → solve back-rank + fork drills → 3/27 persisted, next items unlock. Postgres persistence pending 0.11 (verified on SQLite). Prod build console-clean; dev-only Vite "invalid hook call" noise documented in PROGRESS.
 
 ---
 
