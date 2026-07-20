@@ -12,10 +12,11 @@ from app.core.config import get_settings
 from app.core.security import hash_password
 from app.db.seed.achievements import ACHIEVEMENTS
 from app.db.seed.bosses import BOSSES
+from app.db.seed.puzzles import puzzles_from_modules
 from app.db.seed.stage_map import STAGES, V1_PLACEMENT
 from app.db.seed.validate import validate_bosses, validate_modules
 from app.db.session import get_session_factory
-from app.models import Achievement, ItemKind, LearnItem, Role, Stage, User
+from app.models import Achievement, ItemKind, LearnItem, PuzzleBank, Role, Stage, User
 
 BOSS_ORDER_IDX = 90  # bosses sit last in their stage
 
@@ -92,6 +93,21 @@ async def seed_curriculum(db: AsyncSession) -> None:
     log.info("seed_curriculum_done", stages=len(STAGES), items=placed, bosses=len(BOSSES))
 
 
+async def seed_puzzles(db: AsyncSession) -> None:
+    puzzles = puzzles_from_modules(load_v1_modules())
+    for spec in puzzles:
+        row = await db.scalar(select(PuzzleBank).where(PuzzleBank.source == spec["slug"]))
+        if row is None:
+            row = PuzzleBank(source=spec["slug"])
+            db.add(row)
+        row.fen = spec["fen"]
+        row.line = spec["line"]
+        row.themes = spec["themes"]
+        row.difficulty = spec["difficulty"]
+    await db.commit()
+    log.info("seed_puzzles_done", count=len(puzzles))
+
+
 async def seed_achievements(db: AsyncSession) -> None:
     for spec in ACHIEVEMENTS:
         row = await db.scalar(select(Achievement).where(Achievement.slug == spec["slug"]))
@@ -141,6 +157,7 @@ async def seed_all() -> None:
             await conn.run_sync(Base.metadata.create_all)
     async with get_session_factory()() as db:
         await seed_curriculum(db)
+        await seed_puzzles(db)
         await seed_achievements(db)
         if settings.env == "dev":
             await seed_dev_fixtures(db)

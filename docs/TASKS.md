@@ -134,18 +134,18 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress / partially done (note why
 
 ## Phase 7 — Social: friends, presence, challenges + Mode 4 Puzzle Duel
 
-- [ ] 7.1 Friend API: request/accept/decline/remove/block (+ unique-pair constraint, block precedence)
-- [ ] 7.2 WebSocket `/ws/social` endpoint: presence (online/in-game/idle), friend list live updates
-- [ ] 7.3 Friends UI: search users, requests inbox, friend list with status dots + actions
-- [ ] 7.4 Challenge flow: friend challenge with mode/time/position config → accept spawns game (modes 1/3)
-- [ ] 7.5 Duel engine: puzzle set selection by mean rating, 3-min timer, scoring (difficulty × combo), server-side answer validation
-- [ ] 7.6 WebSocket `/ws/duel` endpoint per ARCHITECTURE §5; matchmade + friend duels; duel Elo
-- [ ] 7.7 Duel UI: split progress bars, combo flames, opponent progress ticker, results screen with per-puzzle breakdown
-- [ ] 7.8 Spectate friend's ongoing game from friend list (read-only)
-- [ ] 7.9 Abuse guards: challenge spam limits, block hides everywhere, report stub
-- [ ] 7.10 Tests: friendship state machine, duel scoring, block precedence
+- [x] 7.1 Friend API (`services/friends.py` + router): request/accept/decline/remove/block/unblock, one-row-per-pair, mutual-request auto-accept, block precedence, user search with relation tags; audit-logged
+- [x] 7.2 `/ws/social`: presence registry (online/in_game/in_duel/offline) fanned out to friends on connect/disconnect; friend:update nudges; auto-reconnect
+- [x] 7.3 Friends UI: live search, requests inbox, friend list with presence dots + challenge/remove/block; incoming-challenge banner in Layout
+- [x] 7.4 Challenge flow: friend challenge (TC + rated) via `/ws/social` → accept spawns a real online game both sides rejoin through `/ws/game` (reuses the whole Phase-4 path); handoff wired in Layout → attachGame → /play
+- [x] 7.5 Duel engine (`services/duel.py`): puzzle selection by mean DUEL rating, 180s shared clock, difficulty+combo scoring, wrong-move fails puzzle & resets combo, server-authoritative board/cursor per player
+- [x] 7.6 `/ws/duel`: matchmaking queue pairs players; submit/progress/opponent_progress/over; duel Elo on finish. **Live-verified: two WS clients matched, solver scored 170–0, +20/−20 duel Elo through the running server**
+- [x] 7.7 Duel UI: board solve-by-click, live timer, your/opponent score cards with combo flames, opponent ticker, result screen
+- [~] 7.8 Spectate friend's game — deferred (game room already supports read-only join; needs a "watch" entry point in the friends list)
+- [x] 7.9 Abuse guards: block removes friendship + forbids requests both ways + hidden from search; challenges friends-only; auth rate-limits already global. (report stub deferred)
+- [x] 7.10 Tests: friends state machine (request/accept, mutual auto-accept, block precedence, self-friend), duel scoring/combo/rating/matchmaking, leaderboard scope — part of 54 green backend tests
 
-**DoD:** two accounts befriend each other, see live presence, and finish a puzzle duel with correct scores and rating updates.
+**DoD:** ✅ friends add each other with live presence; ✅ a full puzzle duel finishes with correct scores + duel Elo (verified live, 170–0, ±20). Puzzle bank: 12 puzzles seeded from validated drills (Lichess CSV import still optional, TASKS 2.7).
 
 ---
 

@@ -168,3 +168,32 @@ export interface ValidationResult {
 }
 
 export const del = (path: string) => request<void>('DELETE', path);
+
+// ---- social ----
+export interface FriendSummary {
+  friendship_id: number;
+  user_id: number;
+  username: string;
+  avatar_url: string | null;
+  presence: string;
+}
+
+export interface FriendsView {
+  friends: FriendSummary[];
+  incoming: FriendSummary[];
+  outgoing: FriendSummary[];
+}
+
+export interface UserSearchResult {
+  username: string;
+  avatar_url: string | null;
+  relation: string;
+}
+
+export interface LeaderRow {
+  rank: number;
+  username: string;
+  value: number;
+  games: number;
+  is_me: boolean;
+}

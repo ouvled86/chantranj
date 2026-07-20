@@ -1,10 +1,21 @@
-import { useState } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { attachGame } from '../features/play/gameStore';
+import {
+  acceptChallenge,
+  clearPendingGameStart,
+  connectSocial,
+  declineChallenge,
+  useSocial,
+} from '../features/social/socialStore';
 import { useAuth } from '../lib/auth';
 
 const navItems = [
   { to: '/learn', label: 'The Path', icon: '§' },
   { to: '/play', label: 'Play', icon: '⚔' },
+  { to: '/duel', label: 'Puzzle Duel', icon: '⚡' },
+  { to: '/friends', label: 'Friends', icon: '☰' },
+  { to: '/leaderboards', label: 'Leaderboards', icon: '↑' },
   { to: '/games', label: 'Archive', icon: '❦' },
   { to: '/settings', label: 'Settings', icon: '⚙' },
 ];
@@ -14,6 +25,22 @@ const adminNavItem = { to: '/admin', label: 'Content Studio', icon: '✎' };
 export default function Layout() {
   const { user, logout } = useAuth();
   const [open, setOpen] = useState(false);
+  const social = useSocial();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    connectSocial();
+  }, []);
+
+  // An accepted challenge (either side) hands off into the live game screen.
+  useEffect(() => {
+    if (social.pendingGameStart) {
+      const { game_id, color } = social.pendingGameStart;
+      attachGame(game_id, color, 'Challenger');
+      clearPendingGameStart();
+      navigate('/play');
+    }
+  }, [social.pendingGameStart, navigate]);
 
   const links = user?.role === 'ADMIN' ? [...navItems, adminNavItem] : navItems;
   const nav = (
@@ -87,6 +114,33 @@ export default function Layout() {
       <main className="min-w-0 flex-1 px-5 py-8 md:px-10">
         <Outlet />
       </main>
+
+      {social.incoming && (
+        <div className="fixed bottom-4 right-4 z-40 w-72 rounded-xs bg-parchment p-4 text-parchment-ink shadow-2xl">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#8c5f22]">
+            Challenge
+          </div>
+          <p className="mt-1 text-sm">
+            <b>{social.incoming.from_username}</b> challenges you —{' '}
+            {social.incoming.time_control.base_min ?? '∞'}+{social.incoming.time_control.inc_sec}
+            {social.incoming.rated ? ' rated' : ' casual'}
+          </p>
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={() => acceptChallenge(social.incoming!.challenge_id)}
+              className="rounded-xs bg-gold px-3 py-1 text-xs font-bold text-walnut-950"
+            >
+              Accept
+            </button>
+            <button
+              onClick={() => declineChallenge(social.incoming!.challenge_id)}
+              className="rounded-xs border border-[#c9b78d] px-3 py-1 text-xs"
+            >
+              Decline
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

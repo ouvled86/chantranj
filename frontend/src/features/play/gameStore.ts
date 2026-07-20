@@ -297,6 +297,21 @@ export async function startBotGame(
   rejoinActive();
 }
 
+/** Attach to a game created elsewhere (e.g. an accepted friend challenge). */
+export function attachGame(gameId: number, color: 'w' | 'b', opponent: string): void {
+  sessionStorage.setItem('activeGameId', String(gameId));
+  setState({
+    phase: 'playing',
+    myColor: color,
+    opponent: { username: opponent, rating: 0 },
+    over: null,
+    game: null,
+    coach: { ...COACH_INIT },
+  });
+  connect();
+  rejoinActive();
+}
+
 /** L1 routes through the blunder check; everyone else moves directly. */
 export function sendMoveSmart(from: string, to: string, promo = ''): void {
   const coachLevel = state.game?.coach_level;

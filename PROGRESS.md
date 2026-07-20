@@ -16,13 +16,13 @@
 | 4     | Online play (mode 1)                   | ✅ Playable | 90%  |
 | 5     | Engine service, bots & review (modes 2+3) | ✅ Live | 95%  |
 | 6     | Learning path & admin CMS              | ✅ Systems live | 80% |
-| 7     | Friends, presence & Puzzle Duel (mode 4) | ⬜ Not started | 0%  |
+| 7     | Friends, presence & Puzzle Duel (mode 4) | ✅ Live | 90%  |
 | 8     | Gamification (XP, achievements, boards)| ⬜ Not started | 0%    |
 | 9     | Production hardening & deployment      | ⬜ Not started | 0%    |
 
-**Overall: phases 0–6 done and live-verified. Play modes (Online/Learn/Bot Arena), reviews,
-gated path with boss checkpoints, and the admin Content Studio all work. Phase 6's only
-remainder is content authoring (6.8–6.10) on finished machinery. Next: Phase 7 (social + duel).**
+**Overall: phases 0–7 done and live-verified. All 4 game modes work (Online, Learn, Bot Arena,
+Puzzle Duel), plus reviews, gated path + bosses, admin Content Studio, friends/presence/
+challenges, and leaderboards. Next: Phase 8 (gamification — XP, achievements, streaks, profile).**
 
 > Machine note: git + Node 26 + uv/Python 3.12 + **Docker Desktop (installed 2026-07-19,
 > WSL2 backend)**. Full compose stack runs locally: `docker compose -f
@@ -42,23 +42,40 @@ remainder is content authoring (6.8–6.10) on finished machinery. Next: Phase 7
 
 ## Next up
 
-**→ Phase 7 (social: friends, presence, challenges + Mode 4 Puzzle Duel).** Start 7.1 friend
-API (request/accept/decline/block, unique-pair, block precedence), then 7.2 `/ws/social`
-presence, then the duel engine (7.5–7.7) reusing the puzzle bank + WS patterns. Redis is
-available now (real pub/sub possible), but the in-process manager pattern from /ws/game is
-the proven baseline.
+**→ Phase 8 (gamification): XP ledger + levels, achievement engine (evaluate the 40 seeded
+condition_json against domain events), daily streaks with freeze, leaderboards already done
+(reuse), profile v2 (rating graphs from rating_history hypertable, accuracy trend, opening
+stats from PGNs, achievement showcase), XP summary screens.** The xp_events hypertable and
+Achievement/UserAchievement/Streak tables already exist from Phase 2 — wire the event bus.
 
-Optional Phase 6 follow-up: author content batches 6.8–6.10 via the admin Content Studio
-(machinery is done + validated) to fill the empty stages.
+Deferred backlog: content authoring 6.8–6.10 (Content Studio ready); spectate 7.8; Lichess
+puzzle CSV 2.7.
 
-Dev loop: full stack via compose (:8080). Docker Desktop stops when the PC sleeps — relaunch
-`Docker Desktop.exe`, wait for engine, `docker compose ... up -d`. Windows gotchas fixed in
-compose: VITE_POLL=1 for the vite watcher; engine tests mounted. Restart `worker` after
-changing celery task code (no autoreload). Serial image pulls (retry loop) — parallel hits CDN TLS timeouts.
+**Dev loop gotchas (important):** full stack via compose (:8080). Docker stops on PC sleep →
+relaunch Docker Desktop, wait for engine, `docker compose ... up -d`. **`--reload` does NOT
+work on Windows bind mounts — after changing backend code you MUST `docker compose restart
+backend worker` (and it's uvicorn, not the reload watcher, that serves).** Also delete stale
+`__pycache__` if imports look old. VITE_POLL=1 already set for the frontend watcher. Serial
+image pulls (retry loop) — parallel hits CDN TLS timeouts. FastAPI here uses lazy router
+inclusion, so introspecting `app.routes[].path` shows nothing — test routes over HTTP instead.
 
 ## Session log
 
 _Newest first. Keep entries to 2–4 lines._
+
+### 2026-07-20 — Session 7 (Phase 7: friends + presence + Puzzle Duel LIVE)
+- Friend graph (one-row-per-pair, block precedence, mutual auto-accept, search), `/ws/social`
+  presence + friend challenges (accept → spawns a real online game via the /ws/game path),
+  leaderboards (online/bot/duel, global/friends).
+- Puzzle Duel (Mode 4): puzzle bank seeded from validated drills (12), duel engine (mean-rating
+  selection, 180s clock, difficulty+combo scoring, wrong resets combo), `/ws/duel` matchmaking,
+  duel Elo. Frontend: Friends page, Duel page (lobby+race+result), Leaderboard page, social store.
+- **Live-verified: two /ws/duel clients matched through the running server, solver 170–0,
+  duel Elo ±20; Friends page search/add works in the browser.** 54 backend tests green,
+  ruff+mypy clean, frontend build/lint/test green.
+- Debugging note recorded: `--reload` is inert on Windows bind mounts → must restart backend
+  container to load new code (cost me a confusing "routes missing" detour; also lazy routing
+  makes route introspection lie — curl the endpoints).
 
 ### 2026-07-20 — Session 6 (Phase 6: boss checkpoints + admin CMS LIVE)
 - Boss system: `services/boss.py` verifies objectives from the finished Game row; game
