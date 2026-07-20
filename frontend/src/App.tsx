@@ -4,6 +4,7 @@ import ItemPage from './features/learn/ItemPage';
 import PathPage from './features/learn/PathPage';
 import PlayPage from './features/play/PlayPage';
 import { AuthProvider, useAuth } from './lib/auth';
+import AdminPage from './pages/AdminPage';
 import { LoginPage, RegisterPage } from './pages/AuthPages';
 import GamesPage from './pages/GamesPage';
 import SettingsPage from './pages/SettingsPage';
@@ -34,6 +35,7 @@ export default function App() {
               <Route path="/learn/:slug" element={<ItemPage />} />
               <Route path="/play" element={<PlayPage />} />
               <Route path="/games" element={<GamesPage />} />
+              <Route path="/admin" element={<AdminPage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>
           </Route>

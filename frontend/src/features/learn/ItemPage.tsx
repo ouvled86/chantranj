@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api, ApiError, type ItemDetail } from '../../lib/api';
+import BossChallenge from './BossChallenge';
 import DrillPlayer from './DrillPlayer';
 import LessonPlayer from './LessonPlayer';
 
@@ -46,6 +47,8 @@ function ItemLoader({ slug }: { slug: string }) {
       </div>
     );
   if (!item) return <p className="font-display italic text-muted">Setting up the board…</p>;
+
+  if (item.kind === 'BOSS') return <BossChallenge item={item} />;
 
   return (
     <div>

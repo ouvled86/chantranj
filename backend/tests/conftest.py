@@ -3,6 +3,7 @@
 Env vars are set BEFORE app imports so cached Settings pick them up.
 """
 
+import asyncio
 import os
 import uuid
 
@@ -14,13 +15,30 @@ os.environ["REDIS_URL"] = "redis://127.0.0.1:1/0"  # unreachable → memory fall
 import pytest
 from fastapi.testclient import TestClient
 
+import app.models  # noqa: F401  (register models on Base.metadata)
 from app.core.ratelimit import reset_memory_store
+from app.db.base import Base
+from app.db.session import get_engine
 from app.main import app
 
 
 @pytest.fixture(autouse=True)
 def _reset_rate_limits() -> None:
     reset_memory_store()
+
+
+@pytest.fixture(autouse=True)
+def _fresh_db() -> None:
+    """One in-memory DB is shared process-wide (StaticPool), so wipe + recreate
+    the schema before every test. Without this, rows a test inserts (e.g. an
+    admin publishing an item) leak into later tests' counts."""
+
+    async def _reset() -> None:
+        async with get_engine().begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+            await conn.run_sync(Base.metadata.create_all)
+
+    asyncio.run(_reset())
 
 
 @pytest.fixture()

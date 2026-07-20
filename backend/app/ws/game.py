@@ -62,8 +62,9 @@ def _coach_budgets(game: LiveGame) -> tuple[int | None, int | None]:
 
 
 async def _coach_after_move(game: LiveGame, moved_by: str) -> None:
-    """Evaluate the fresh position and push level-filtered info to the human."""
-    if game.coach_level is None:
+    """Evaluate the fresh position and push level-filtered info to the human.
+    LEARN games always have the human as white."""
+    if game.coach_level is None or game.white_id is None:
         return
     fen = game.board.fen()
     ply = len(game.moves)

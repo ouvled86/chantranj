@@ -29,3 +29,4 @@ class ItemDetail(BaseModel):
     sub: str
     status: str
     content: dict[str, Any]
+    boss: dict[str, Any] | None = None  # boss_config for BOSS items (no bot secrets here)

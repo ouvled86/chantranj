@@ -84,6 +84,15 @@ export interface StageOut {
   items: ItemSummary[];
 }
 
+export interface BossConfig {
+  bot_level: number;
+  player_color: 'white' | 'black';
+  objective: 'win' | 'checkmate' | 'draw' | 'convert';
+  move_limit: number | null;
+  start_fen: string | null;
+  time_control: { base_min: number | null; inc_sec: number };
+}
+
 export interface ItemDetail {
   slug: string;
   kind: 'LESSON' | 'DRILL' | 'BOSS';
@@ -91,6 +100,7 @@ export interface ItemDetail {
   sub: string;
   status: string;
   content: ItemContent;
+  boss: BossConfig | null;
 }
 
 export interface ContentStep {
@@ -123,3 +133,38 @@ export interface ItemContent {
   steps: ContentStep[] | null;
   line: LineEntry[] | null;
 }
+
+// ---- admin CMS ----
+export interface AdminStage {
+  id: number;
+  slug: string;
+  title: string;
+  intro: string;
+  order_idx: number;
+  published: boolean;
+  item_count: number;
+}
+
+export interface AdminItem {
+  id: number;
+  stage_id: number;
+  slug: string;
+  kind: 'LESSON' | 'DRILL' | 'BOSS';
+  title: string;
+  sub: string;
+  order_idx: number;
+  published: boolean;
+  version: number;
+}
+
+export interface AdminItemFull extends AdminItem {
+  content_json: Record<string, unknown>;
+  boss_config: Record<string, unknown> | null;
+}
+
+export interface ValidationResult {
+  valid: boolean;
+  errors: string[];
+}
+
+export const del = (path: string) => request<void>('DELETE', path);

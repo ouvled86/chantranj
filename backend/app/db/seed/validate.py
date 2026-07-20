@@ -56,3 +56,17 @@ def validate_modules(modules: list[dict[str, Any]]) -> list[str]:
         for item in module["items"]:
             errors.extend(validate_item(item))
     return errors
+
+
+def validate_bosses(bosses: list[dict[str, Any]]) -> list[str]:
+    """Every boss start_fen must parse AND be a legal, playable position."""
+    errors: list[str] = []
+    for boss in bosses:
+        cfg = boss["boss_config"]
+        fen = cfg.get("start_fen")
+        if fen is None:
+            continue
+        board = _try_board(fen, f"{boss['slug']}:start_fen", errors)
+        if board is not None and not board.is_valid():
+            errors.append(f"{boss['slug']}: start_fen is not a legal position ({board.status()!r})")
+    return errors

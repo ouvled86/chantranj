@@ -49,5 +49,5 @@ def test_seed_is_idempotent(client: TestClient) -> None:
         return first, second
 
     first, second = asyncio.run(_run())
-    assert first == (12, 27, 40)
+    assert first == (12, 39, 40)  # 12 stages, 27 v1 items + 12 bosses, 40 achievements
     assert second == first

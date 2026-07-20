@@ -9,13 +9,16 @@ const navItems = [
   { to: '/settings', label: 'Settings', icon: '⚙' },
 ];
 
+const adminNavItem = { to: '/admin', label: 'Content Studio', icon: '✎' };
+
 export default function Layout() {
   const { user, logout } = useAuth();
   const [open, setOpen] = useState(false);
 
+  const links = user?.role === 'ADMIN' ? [...navItems, adminNavItem] : navItems;
   const nav = (
     <nav className="flex-1 space-y-1 px-3 py-4">
-      {navItems.map((item) => (
+      {links.map((item) => (
         <NavLink
           key={item.to}
           to={item.to}

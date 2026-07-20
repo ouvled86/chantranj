@@ -1,6 +1,7 @@
-/** Online-play state: one socket, one store, plain React subscription. */
+﻿/** Online-play state: one socket, one store, plain React subscription. */
 
 import { useSyncExternalStore } from 'react';
+import { api } from '../../lib/api';
 
 export interface ServerGameState {
   game_id: number;
@@ -119,7 +120,7 @@ function handleMessage(msg: { type: string; data: Record<string, unknown> }) {
     case 'game:state':
     case 'game:move': {
       const g = d as ServerGameState;
-      // The final move can arrive right after game:over — update the board
+      // The final move can arrive right after game:over â€” update the board
       // but never resurrect a finished game.
       setState({
         game: g,
@@ -230,6 +231,36 @@ export const BOT_ANCHORS: Record<number, number> = {
   1: 600, 2: 800, 3: 1000, 4: 1200, 5: 1400, 6: 1700, 7: 2000, 8: 2300,
 };
 
+/** Boss games route through the learn endpoint; the store tracks which boss so
+ *  the challenge screen can verify the objective when the game ends. */
+export async function startBossGame(
+  slug: string,
+  playerColor: 'white' | 'black',
+  label: string,
+): Promise<void> {
+  const r = await api.post<{ game_id: number }>(`/api/v1/learn/items/${slug}/boss/start`);
+  sessionStorage.setItem('activeGameId', String(r.game_id));
+  bossSlug = slug;
+  setState({
+    phase: 'playing',
+    myColor: playerColor === 'white' ? 'w' : 'b',
+    opponent: { username: label, rating: 0 },
+    over: null,
+    game: null,
+    coach: { ...COACH_INIT },
+  });
+  connect();
+  rejoinActive();
+}
+
+let bossSlug: string | null = null;
+export function activeBossSlug(): string | null {
+  return bossSlug;
+}
+export function clearBoss(): void {
+  bossSlug = null;
+}
+
 function rejoinActive(): void {
   const id = sessionStorage.getItem('activeGameId');
   if (id && socket?.readyState === WebSocket.OPEN) {
@@ -244,7 +275,6 @@ export async function startBotGame(
   rated: boolean,
   coachLevel: number | null = null,
 ): Promise<void> {
-  const { api } = await import('../../lib/api');
   const r = await api.post<{ game_id: number }>('/api/v1/games', {
     bot_level: level,
     coach_level: coachLevel,
@@ -256,7 +286,7 @@ export async function startBotGame(
     phase: 'playing',
     myColor: 'w',
     opponent: {
-      username: coachLevel ? `Coach L${coachLevel} · Bot ${level}` : `Stockfish · Bot ${level}`,
+      username: coachLevel ? `Coach L${coachLevel} Â· Bot ${level}` : `Stockfish Â· Bot ${level}`,
       rating: BOT_ANCHORS[level],
     },
     over: null,

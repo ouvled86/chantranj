@@ -42,8 +42,8 @@ OverCallback = Callable[["LiveGame", dict[str, Any]], Awaitable[None]]
 @dataclass
 class LiveGame:
     id: int
-    white_id: int
-    black_id: int | None  # None = engine opponent
+    white_id: int | None  # None = engine plays white
+    black_id: int | None  # None = engine plays black
     rated: bool
     base_ms: int | None  # None = untimed
     inc_ms: int = 0
@@ -66,11 +66,21 @@ class LiveGame:
     on_over: OverCallback | None = None
 
     def player_color(self, user_id: int) -> chess.Color | None:
-        if user_id == self.white_id:
+        if self.white_id is not None and user_id == self.white_id:
             return chess.WHITE
         if self.black_id is not None and user_id == self.black_id:
             return chess.BLACK
         return None
+
+    @property
+    def bot_color(self) -> chess.Color | None:
+        if self.bot_level is None:
+            return None
+        return chess.WHITE if self.white_id is None else chess.BLACK
+
+    @property
+    def human_id(self) -> int | None:
+        return self.white_id if self.white_id is not None else self.black_id
 
     def clocks(self) -> dict[str, int | None]:
         if self.base_ms is None:
@@ -109,7 +119,7 @@ def get_live(game_id: int) -> LiveGame | None:
 
 async def create_game(
     *,
-    white_id: int,
+    white_id: int | None,
     black_id: int | None,
     rated: bool,
     base_min: float | None,
@@ -117,8 +127,10 @@ async def create_game(
     mode: GameMode = GameMode.ONLINE,
     bot_level: int | None = None,
     coach_level: int | None = None,
+    start_fen: str | None = None,
     on_over: OverCallback | None = None,
 ) -> LiveGame:
+    board = chess.Board() if start_fen is None else chess.Board(start_fen)
     async with get_session_factory()() as db:
         row = Game(
             mode=mode,
@@ -127,6 +139,7 @@ async def create_game(
             bot_level=bot_level,
             coach_level=coach_level,
             rated=rated,
+            start_fen=start_fen,
             time_control={"base_min": base_min, "inc_sec": inc_sec},
         )
         db.add(row)
@@ -144,6 +157,7 @@ async def create_game(
         mode=mode,
         bot_level=bot_level,
         coach_level=coach_level,
+        board=board,
         white_ms=base_ms or 0,
         black_ms=base_ms or 0,
         on_over=on_over,
@@ -183,13 +197,13 @@ async def make_move(game: LiveGame, user_id: int, uci: str) -> dict[str, Any]:
 
 
 async def play_bot_move(game: LiveGame, uci: str) -> dict[str, Any] | None:
-    """Apply an engine move (bot = black). Returns None if the moment passed."""
+    """Apply an engine move on the bot's side. Returns None if the moment passed."""
     async with game.lock:
-        if game.status != "active" or game.bot_level is None:
+        if game.status != "active" or game.bot_color is None:
             return None
-        if game.board.turn != chess.BLACK:
+        if game.board.turn != game.bot_color:
             return None
-        return await _apply_locked(game, uci, None, chess.BLACK)
+        return await _apply_locked(game, uci, None, game.bot_color)
 
 
 async def drive_bot(
@@ -197,7 +211,12 @@ async def drive_bot(
 ) -> None:
     """Fetch + apply the engine reply if it's the bot's turn. Engine call runs
     WITHOUT the game lock; the apply step revalidates."""
-    if game.bot_level is None or game.status != "active" or game.board.turn != chess.BLACK:
+    if (
+        game.bot_color is None
+        or game.bot_level is None
+        or game.status != "active"
+        or game.board.turn != game.bot_color
+    ):
         return
     try:
         uci = await engine_client.botmove(game.board.fen(), game.bot_level)
@@ -423,37 +442,49 @@ async def _finish_locked(game: LiveGame, result: GameResult, reason: str) -> Non
             row.pgn = _pgn(game, result)
 
             if game.rated and decisive and score is not None:
-                if game.mode == GameMode.ONLINE and game.black_id is not None:
+                if (
+                    game.mode == GameMode.ONLINE
+                    and game.white_id is not None
+                    and game.black_id is not None
+                ):
                     delta_w, delta_b = await elo.apply_result(
                         db, RatingMode.ONLINE, game.white_id, game.black_id, score
                     )
                 elif game.mode == GameMode.BOT and game.bot_level is not None:
+                    # Human may be white or black; score from their perspective.
+                    human_white = game.white_id is not None
+                    human_score = score if human_white else 1.0 - score
+                    human_id = game.human_id
                     anchor = BOT_ANCHOR_RATING[game.bot_level]
-                    rating = await elo.get_or_create_rating(
-                        db, game.white_id, RatingMode.BOT
-                    )
-                    delta_w = elo.delta(rating.value, anchor, score, rating.games)
-                    rating.value += delta_w
-                    rating.games += 1
+                    if human_id is not None:
+                        rating = await elo.get_or_create_rating(db, human_id, RatingMode.BOT)
+                        human_delta = elo.delta(
+                            rating.value, anchor, human_score, rating.games
+                        )
+                        rating.value += human_delta
+                        rating.games += 1
+                        if human_white:
+                            delta_w = human_delta
+                        else:
+                            delta_b = human_delta
                 row.rating_delta_w = delta_w
                 row.rating_delta_b = delta_b
             await db.commit()
 
-            if delta_w is not None:
-                mode_name = "ONLINE" if game.mode == GameMode.ONLINE else "BOT"
-                white = await elo.get_or_create_rating(
-                    db, game.white_id, RatingMode(mode_name)
-                )
-                await db.commit()
+            # Rating-history telemetry, per human side that actually has a rating row.
+            online_mode = game.mode == GameMode.ONLINE
+            if delta_w is not None and game.white_id is not None:
+                mode = RatingMode.ONLINE if online_mode else RatingMode.BOT
+                r = await elo.get_or_create_rating(db, game.white_id, mode)
                 await writer.record_rating(
-                    user_id=game.white_id, mode=mode_name, value=white.value,
+                    user_id=game.white_id, mode=mode.value, value=r.value,
                     delta=delta_w, game_id=game.id,
                 )
             if delta_b is not None and game.black_id is not None:
-                black = await elo.get_or_create_rating(db, game.black_id, RatingMode.ONLINE)
-                await db.commit()
+                mode = RatingMode.ONLINE if online_mode else RatingMode.BOT
+                r = await elo.get_or_create_rating(db, game.black_id, mode)
                 await writer.record_rating(
-                    user_id=game.black_id, mode="ONLINE", value=black.value,
+                    user_id=game.black_id, mode=mode.value, value=r.value,
                     delta=delta_b, game_id=game.id,
                 )
 

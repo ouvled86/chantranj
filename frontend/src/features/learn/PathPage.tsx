@@ -61,25 +61,39 @@ export default function PathPage() {
                     <Link
                       to={`/learn/${item.slug}`}
                       className={`flex items-center gap-3 border-l-2 py-2 pl-4 transition hover:bg-walnut-800 ${
-                        item.status === 'AVAILABLE'
-                          ? 'border-gold bg-gold/10'
-                          : 'border-walnut-line'
+                        item.kind === 'BOSS'
+                          ? item.status === 'AVAILABLE'
+                            ? 'border-gold bg-gold/20'
+                            : 'border-gold/40 bg-gold/5'
+                          : item.status === 'AVAILABLE'
+                            ? 'border-gold bg-gold/10'
+                            : 'border-walnut-line'
                       }`}
                     >
                       <span
                         className={`font-mono text-xs ${
-                          item.kind === 'LESSON' ? 'text-muted' : 'text-wrong'
+                          item.kind === 'LESSON'
+                            ? 'text-muted'
+                            : item.kind === 'BOSS'
+                              ? ''
+                              : 'text-wrong'
                         }`}
                       >
-                        {item.kind === 'LESSON' ? '§' : '⚔'}
+                        {item.kind === 'LESSON' ? '§' : item.kind === 'BOSS' ? '👑' : '⚔'}
                       </span>
-                      <span className="flex-1 text-sm">{item.title}</span>
+                      <span
+                        className={`flex-1 text-sm ${
+                          item.kind === 'BOSS' ? 'font-display font-semibold' : ''
+                        }`}
+                      >
+                        {item.title}
+                      </span>
                       {item.status === 'DONE' && (
                         <span className="text-xs font-bold text-correct">✓</span>
                       )}
                       {item.status === 'AVAILABLE' && (
                         <span className="font-mono text-[10px] uppercase tracking-wider text-gold">
-                          next
+                          {item.kind === 'BOSS' ? 'boss' : 'next'}
                         </span>
                       )}
                     </Link>

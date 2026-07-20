@@ -214,7 +214,7 @@ function Lobby() {
   );
 }
 
-function GameScreen() {
+export function GameScreen() {
   const play = usePlayState();
   const { user } = useAuth();
   const [selected, setSelected] = useState<number | null>(null);

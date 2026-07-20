@@ -27,7 +27,7 @@ def test_path_shape_and_initial_gating(client: TestClient, registered: dict[str,
     path = _path(client)
     assert len(path) == 12
     items = _flat(path)
-    assert len(items) == 27
+    assert len(items) == 39  # 27 v1 items + 12 stage bosses
     assert items[0]["slug"] == "kq-mate"  # stage 1, first seeded item
     assert items[0]["status"] == "AVAILABLE"
     assert all(i["status"] == "LOCKED" for i in items[1:])

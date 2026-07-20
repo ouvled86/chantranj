@@ -11,10 +11,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.security import hash_password
 from app.db.seed.achievements import ACHIEVEMENTS
+from app.db.seed.bosses import BOSSES
 from app.db.seed.stage_map import STAGES, V1_PLACEMENT
-from app.db.seed.validate import validate_modules
+from app.db.seed.validate import validate_bosses, validate_modules
 from app.db.session import get_session_factory
 from app.models import Achievement, ItemKind, LearnItem, Role, Stage, User
+
+BOSS_ORDER_IDX = 90  # bosses sit last in their stage
 
 log = structlog.get_logger()
 
@@ -66,8 +69,27 @@ async def seed_curriculum(db: AsyncSession) -> None:
             row.content_json = item
             row.published = True
             placed += 1
+
+    boss_errors = validate_bosses(BOSSES)
+    if boss_errors:
+        raise RuntimeError("boss validation failed:\n" + "\n".join(boss_errors))
+    for boss in BOSSES:
+        row = await db.scalar(select(LearnItem).where(LearnItem.slug == boss["slug"]))
+        if row is None:
+            row = LearnItem(slug=boss["slug"], stage_id=stage_ids[boss["stage_slug"]],
+                            kind=ItemKind.BOSS)
+            db.add(row)
+        row.stage_id = stage_ids[boss["stage_slug"]]
+        row.kind = ItemKind.BOSS
+        row.title = boss["title"]
+        row.sub = boss["sub"]
+        row.order_idx = BOSS_ORDER_IDX
+        row.content_json = {"intro": boss["intro"], "outro": boss["outro"]}
+        row.boss_config = boss["boss_config"]
+        row.published = True
+
     await db.commit()
-    log.info("seed_curriculum_done", stages=len(STAGES), items=placed)
+    log.info("seed_curriculum_done", stages=len(STAGES), items=placed, bosses=len(BOSSES))
 
 
 async def seed_achievements(db: AsyncSession) -> None:

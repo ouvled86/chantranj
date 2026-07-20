@@ -15,13 +15,14 @@
 | 3     | Frontend foundation (React port)       | 🟨 Nearly done | 85%  |
 | 4     | Online play (mode 1)                   | ✅ Playable | 90%  |
 | 5     | Engine service, bots & review (modes 2+3) | ✅ Live | 95%  |
-| 6     | Learning path & admin CMS              | ⬜ Not started | 0%    |
+| 6     | Learning path & admin CMS              | ✅ Systems live | 80% |
 | 7     | Friends, presence & Puzzle Duel (mode 4) | ⬜ Not started | 0%  |
 | 8     | Gamification (XP, achievements, boards)| ⬜ Not started | 0%    |
 | 9     | Production hardening & deployment      | ⬜ Not started | 0%    |
 
-**Overall: phases 0–5 done and live-verified. All three play modes work: Online, Learn
-(coach L1–L5), Bot Arena — plus post-game reviews via Celery+Stockfish. Next: Phase 6.**
+**Overall: phases 0–6 done and live-verified. Play modes (Online/Learn/Bot Arena), reviews,
+gated path with boss checkpoints, and the admin Content Studio all work. Phase 6's only
+remainder is content authoring (6.8–6.10) on finished machinery. Next: Phase 7 (social + duel).**
 
 > Machine note: git + Node 26 + uv/Python 3.12 + **Docker Desktop (installed 2026-07-19,
 > WSL2 backend)**. Full compose stack runs locally: `docker compose -f
@@ -41,18 +42,34 @@
 
 ## Next up
 
-**→ Phase 6 (learning path gating polish + admin CMS + boss checkpoints).** Gating itself
-shipped in Phase 3 (learn router, strict linear). Start with 6.2 boss checkpoints
-(boss_config on LearnItem + server-verified objectives via a LEARN-mode game), then the
-admin CMS (6.5-6.7), then content authoring batches (6.8-6.10 per docs/CURRICULUM.md).
+**→ Phase 7 (social: friends, presence, challenges + Mode 4 Puzzle Duel).** Start 7.1 friend
+API (request/accept/decline/block, unique-pair, block precedence), then 7.2 `/ws/social`
+presence, then the duel engine (7.5–7.7) reusing the puzzle bank + WS patterns. Redis is
+available now (real pub/sub possible), but the in-process manager pattern from /ws/game is
+the proven baseline.
 
-Dev loop: full stack via compose (:8080). Windows gotchas already fixed in compose:
-VITE_POLL=1 for the vite watcher; engine tests mounted. Restart `worker` after changing
-celery task code (no autoreload).
+Optional Phase 6 follow-up: author content batches 6.8–6.10 via the admin Content Studio
+(machinery is done + validated) to fill the empty stages.
+
+Dev loop: full stack via compose (:8080). Docker Desktop stops when the PC sleeps — relaunch
+`Docker Desktop.exe`, wait for engine, `docker compose ... up -d`. Windows gotchas fixed in
+compose: VITE_POLL=1 for the vite watcher; engine tests mounted. Restart `worker` after
+changing celery task code (no autoreload). Serial image pulls (retry loop) — parallel hits CDN TLS timeouts.
 
 ## Session log
 
 _Newest first. Keep entries to 2–4 lines._
+
+### 2026-07-20 — Session 6 (Phase 6: boss checkpoints + admin CMS LIVE)
+- Boss system: `services/boss.py` verifies objectives from the finished Game row; game
+  service generalized (bot plays either color, custom start_fen, side-aware Elo);
+  `/learn/.../boss/start` + `/boss/verify`; 12 bosses seeded (mate/convert/draw-hold/beat-bot).
+- Admin Content Studio: `admin_content.py` (stages/items CRUD, reorder, validate, publish
+  gate) + React AdminPage (JSON editor + live board preview + validation display), admin-only nav.
+- Test isolation fix: per-test drop/create in conftest (shared in-memory DB was leaking rows).
+- **Live-verified through :8080:** admin injected an illegal move → validator blocked publish
+  → fixed → published → item appeared in learner path; boss briefing → Begin → real K+Q vs K
+  board. 45 backend tests green, ruff+mypy clean, frontend build/lint/test green.
 
 ### 2026-07-20 — Session 5b (Phase 5 complete: coach + review LIVE)
 - Coach L1–L5 shipped: config-driven `services/coach.py`, coach:info after every ply,

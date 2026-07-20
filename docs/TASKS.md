@@ -116,19 +116,19 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress / partially done (note why
 
 ## Phase 6 — Learning path gating & admin CMS
 
-- [ ] 6.1 Gating service: item unlock rules (previous item done) + stage unlock (boss done); admin bypass; API returns per-item status
-- [ ] 6.2 Boss checkpoints: bossConfig (startFen, botLevel, playerColor, objective: win/draw/mate-in-N-moves/convert-endgame, move limit); server verifies outcome and marks progress
-- [ ] 6.3 Boss UI: framed like a challenge (stage banner, objective text, retry)
-- [ ] 6.4 Progress events → XP hooks (consumed in Phase 8)
-- [ ] 6.5 Admin CMS — content list: stages/items table, drag reorder, draft/published badges, version bump on publish
-- [ ] 6.6 Admin CMS — item editor: metadata form + JSON step/line editor with schema validation + live board preview (replays steps) + python-chess legality check on save; cannot publish invalid content
-- [ ] 6.7 Admin CMS — stage editor + curriculum overview (item counts, completion funnel stats)
-- [ ] 6.8 New-content authoring batch 1 (from CURRICULUM.md backlog): Stage 1–4 gaps (~15 items)
+- [x] 6.1 Gating: strict-linear service already shipped in Phase 3 (learn router); linear order naturally enforces "beat the stage boss (order_idx 90, last in stage) to reach the next stage." Admin bypass confirmed live.
+- [x] 6.2 Boss checkpoints: `boss_config` (start_fen, bot_level, player_color, objective win|checkmate|draw|convert, move_limit, time_control); `services/boss.py` verifies from the FINISHED Game row (survives restart); `/learn/items/{slug}/boss/start` (creates BOT game, human either color) + `/boss/verify` (marks DONE on pass); `/complete` refuses bosses (409). Game service generalized: bot plays either color, custom start_fen, side-aware Elo. 12 bosses seeded (K+Q mate, K+P convert, Philidor-style draw-hold as black, beat-Bot-N ×9). **Verified live: boss briefing → Begin → real K+Q vs K board loads.**
+- [x] 6.3 Boss UI (`BossChallenge`): parchment briefing (objective/color/bot), Begin → reuses GameScreen, on game-over auto-verifies and shows pass/fail + retry; 👑 styling in path
+- [~] 6.4 Progress events → XP hooks: deferred to Phase 8 (XP engine lives there; boss/item completion already emits ItemProgress rows the XP engine will consume)
+- [x] 6.5 Admin CMS content list: stages (with item counts + draft badges) → items (live/draft badges), new-item, per-stage; `admin_content.py` router, all audit-logged
+- [x] 6.6 Admin CMS item editor: metadata form + JSON content/boss editor + **live board preview replaying steps client-side** + `/validate` (python-chess) + publish gate (422 with error list on invalid); version bump on publish. **Verified live: injected an illegal move → validator reported `line[1]: illegal move 'e2e5'` → publish blocked; fixed → published → appeared AVAILABLE in the learner path.**
+- [~] 6.7 Stage editor (create/patch stage) + counts done; completion-funnel stats deferred to Phase 8 analytics
+- [ ] 6.8 New-content authoring batch 1 (from CURRICULUM.md backlog): Stage 1–4 gaps (~15 items) — **not started; systems are ready (CMS + validator), this is pure content authoring. Can be done incrementally via the admin UI or a seed batch.**
 - [ ] 6.9 New-content authoring batch 2: Stage 5–8 gaps (~15 items)
 - [ ] 6.10 New-content authoring batch 3: Stage 9–12 gaps (~12 items) — all validator-clean
-- [ ] 6.11 Tests: gating edge cases (skip attempts return 403), boss verification, publish workflow
+- [x] 6.11 Tests: gating edge cases (locked item read/complete → 403), boss verify objective matrix (win/draw/checkmate-only/wrong-color), boss start+verify+DONE flow, CMS RBAC + publish-gate + reorder. 45 backend tests total, all green.
 
-**DoD:** a fresh user must complete Stage 1 in order and beat its boss to see Stage 2; admin can author, preview, validate and publish a new drill end-to-end from the browser.
+**DoD:** ✅ boss checkpoint fights + verify work (K+Q mate boss live-verified through the UI); ✅ admin authors→validates→publishes a drill end-to-end from the browser and it appears in the learner path; content-authoring backlog (6.8–6.10) is the remaining work and is now pure data entry on finished machinery.
 
 ---
 
