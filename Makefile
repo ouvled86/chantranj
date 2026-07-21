@@ -39,6 +39,15 @@ seed: ## Seed the database (Phase 2+)
 
 test: test-backend test-engine test-frontend ## Run all test suites
 
+e2e: ## Playwright happy-path smoke against the running stack (:8080)
+	cd frontend && npx playwright test
+
+loadtest: ## k6 load-sanity against the running stack (needs k6 installed)
+	k6 run -e BASE=http://localhost:8080 devops/loadtest/browse.js
+
+backup: ## Run a one-off prod DB backup
+	sh devops/prod/backup.sh
+
 test-backend: ## Backend pytest
 	$(COMPOSE_DEV) run --rm backend pytest
 

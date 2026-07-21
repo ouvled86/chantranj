@@ -1,0 +1,138 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Sync deps
+        working-directory: backend
+        run: uv sync
+      - name: Ruff (lint + imports)
+        working-directory: backend
+        run: uv run ruff check .
+      - name: mypy (strict)
+        working-directory: backend
+        run: uv run mypy app
+      - name: pytest
+        working-directory: backend
+        run: uv run pytest -q
+
+  engine:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Stockfish
+        run: sudo apt-get update && sudo apt-get install -y stockfish
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Sync deps
+        working-directory: engine
+        run: uv sync
+      - name: Ruff
+        working-directory: engine
+        run: uv run ruff check .
+      - name: pytest (real Stockfish)
+        working-directory: engine
+        env:
+          STOCKFISH_PATH: /usr/games/stockfish
+        run: uv run pytest -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install
+        working-directory: frontend
+        run: npm ci
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+      - name: Typecheck + build
+        working-directory: frontend
+        run: npm run build
+      - name: Unit tests
+        working-directory: frontend
+        run: npm test
+
+  e2e:
+    # Full-stack happy-path smoke against the dev compose stack.
+    needs: [backend, engine, frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bring up the stack
+        run: |
+          cp .env.example .env
+          docker compose -f devops/compose/docker-compose.dev.yml up -d --build \
+            timescaledb redis backend engine frontend nginx
+      - name: Wait for migrations + seed
+        run: |
+          for i in $(seq 1 30); do
+            docker compose -f devops/compose/docker-compose.dev.yml exec -T backend \
+              alembic upgrade head && break || sleep 5
+          done
+          docker compose -f devops/compose/docker-compose.dev.yml exec -T backend \
+            python -m app.db.seed
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: frontend/package-lock.json }
+      - name: Playwright
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          # nginx serves the app on :8080; wait for it then run the smoke suite
+          for i in $(seq 1 30); do curl -fsS http://localhost:8080/ && break || sleep 3; done
+          BASE_URL=http://localhost:8080 npm run test:e2e
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose -f devops/compose/docker-compose.dev.yml logs --tail=100
+
+  docker-build:
+    # Images build on every PR; only push to GHCR from main.
+    needs: [backend, engine, frontend]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Log in to GHCR
+        if: github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build (and push on main) images
+        run: |
+          PUSH=${{ github.ref == 'refs/heads/main' && 'true' || 'false' }}
+          for svc in backend engine frontend; do
+            docker buildx build \
+              -f "devops/containers/${svc}.Dockerfile" \
+              --target prod \
+              -t "ghcr.io/${{ github.repository }}/${svc}:${{ github.sha }}" \
+              --push=$PUSH --load=$([ "$PUSH" = false ] && echo true || echo false) \
+              . || exit 1
+          done

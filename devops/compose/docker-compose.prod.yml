@@ -1,0 +1,161 @@
+name: the-study-prod
+
+# Production stack. Images are built from the prod Dockerfile targets (no dev
+# mounts, non-root, resource-limited). Secrets come from a host .env — never
+# baked into images. Bring up with: make prod-up
+
+x-logging: &default-logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "3" }
+
+services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - tsdata:/var/lib/postgresql/data
+      - ./backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits: { cpus: "2", memory: 1g }
+    logging: *default-logging
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "60", "1", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    logging: *default-logging
+
+  backend:
+    image: ghcr.io/${IMAGE_OWNER:-the-study}/backend:${TAG:-latest}
+    build:
+      context: ../..
+      dockerfile: devops/containers/backend.Dockerfile
+      target: prod
+    restart: unless-stopped
+    env_file: ../../.env
+    environment:
+      ENV: prod
+      COOKIE_SECURE: "true"
+    depends_on:
+      timescaledb: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    deploy:
+      resources:
+        limits: { cpus: "2", memory: 768m }
+    logging: *default-logging
+
+  worker:
+    image: ghcr.io/${IMAGE_OWNER:-the-study}/backend:${TAG:-latest}
+    build:
+      context: ../..
+      dockerfile: devops/containers/backend.Dockerfile
+      target: prod
+    restart: unless-stopped
+    command: ["celery", "-A", "app.workers.celery_app", "worker", "--loglevel=info", "--concurrency=2"]
+    env_file: ../../.env
+    environment:
+      ENV: prod
+    depends_on:
+      redis: { condition: service_healthy }
+    deploy:
+      resources:
+        limits: { cpus: "1", memory: 512m }
+    logging: *default-logging
+
+  engine:
+    image: ghcr.io/${IMAGE_OWNER:-the-study}/engine:${TAG:-latest}
+    build:
+      context: ../..
+      dockerfile: devops/containers/engine.Dockerfile
+      target: prod
+    restart: unless-stopped
+    environment:
+      ENGINE_POOL_SIZE: "4"
+    deploy:
+      resources:
+        limits: { cpus: "4", memory: 1g }
+    logging: *default-logging
+
+  frontend:
+    image: ghcr.io/${IMAGE_OWNER:-the-study}/frontend:${TAG:-latest}
+    build:
+      context: ../..
+      dockerfile: devops/containers/frontend.Dockerfile
+      target: prod
+    restart: unless-stopped
+    logging: *default-logging
+
+  waf:
+    # ModSecurity + OWASP CRS reverse-proxying the app, TLS-terminating nginx.
+    image: owasp/modsecurity-crs:nginx-alpine
+    restart: unless-stopped
+    environment:
+      BACKEND: "http://frontend:80"
+      MODSEC_RULE_ENGINE: "On"
+      PARANOIA: "1"
+    volumes:
+      - ./prod/nginx-tls.conf:/etc/nginx/templates/conf.d/study.conf.template:ro
+      - ./prod/certs:/etc/nginx/certs:ro
+      - certbot-webroot:/var/www/certbot:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - backend
+      - frontend
+      - engine
+    logging: *default-logging
+
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    volumes:
+      - ../monitoring/prometheus:/etc/prometheus:ro
+      - promdata:/prometheus
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=15d"]
+    logging: *default-logging
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: "%(protocol)s://%(domain)s/grafana/"
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      # Consumed by the provisioned TimescaleDB datasource.
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafanadata:/var/lib/grafana
+    depends_on:
+      - prometheus
+      - timescaledb
+    logging: *default-logging
+
+volumes:
+  tsdata:
+  redisdata:
+  promdata:
+  grafanadata:
+  certbot-webroot:

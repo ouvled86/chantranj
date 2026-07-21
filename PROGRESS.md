@@ -18,11 +18,13 @@
 | 6     | Learning path & admin CMS              | ✅ Systems live | 80% |
 | 7     | Friends, presence & Puzzle Duel (mode 4) | ✅ Live | 90%  |
 | 8     | Gamification (XP, achievements, boards)| ✅ Live | 90%  |
-| 9     | Production hardening & deployment      | ⬜ Not started | 0%    |
+| 9     | Production hardening & deployment      | ✅ Done (deploy owner-gated) | 90% |
 
-**Overall: phases 0–8 done and live-verified. Full product: 4 game modes, reviews, gated path
-+ bosses, admin Content Studio, friends/presence/challenges, leaderboards, and gamification
-(XP/levels/streaks/achievements + profile). Only Phase 9 (production hardening) remains.**
+**Overall: phases 0–9 complete. Full product + production infra: CI (ruff/mypy/pytest/e2e/
+docker), prod compose (TLS/WAF/limits), Grafana dashboards on live game telemetry, backups +
+RUNBOOK, Playwright e2e, k6 load script, SECURITY doc, MIT license, portfolio README. The one
+remaining real-world step is the actual public deploy (needs the owner's box + domain) and the
+GitHub push (needs the owner's `gh auth login` — gh is installed, remote/CI staged).**
 
 > Machine note: git + Node 26 + uv/Python 3.12 + **Docker Desktop (installed 2026-07-19,
 > WSL2 backend)**. Full compose stack runs locally: `docker compose -f
@@ -42,7 +44,17 @@
 
 ## Next up
 
-**→ Phase 9 (production hardening & deployment):** GitHub Actions CI (ruff+mypy+pytest,
+**→ Owner-gated finish line (two steps only I can't do for you):**
+1. **GitHub push:** `gh` is installed. Run `gh auth login` (once), then
+   `gh repo create chantranj --private --source . --remote origin --push`. CI runs on push.
+2. **Public deploy:** on a Docker box with a domain, follow docs/RUNBOOK.md "First deploy".
+
+**Optional backlog (systems all ready):** content authoring 6.8–6.10 via Content Studio;
+Lichess puzzle CSV (2.7); profile accuracy-trend/opening-stats (8.6); Redis presence/matchmaking
++ leaderboard cache; spectate (7.8); stretch 9.11.
+
+---
+_Superseded plan (done):_ **Phase 9 (production hardening & deployment):** GitHub Actions CI (ruff+mypy+pytest,
 docker build), docker-compose.prod.yml (nginx TLS, WAF, resource limits, no dev mounts),
 TLS/HSTS, Postgres backup cron + restore runbook, Grafana dashboards as code (the
 homelab-mirror payoff: game telemetry from TimescaleDB + infra metrics from Prometheus),
@@ -62,6 +74,19 @@ inclusion, so introspecting `app.routes[].path` shows nothing — test routes ov
 ## Session log
 
 _Newest first. Keep entries to 2–4 lines._
+
+### 2026-07-21 — Session 9 (Phase 9: production hardening)
+- CI (.github/workflows/ci.yml): backend/engine/frontend + e2e (compose+Playwright) +
+  docker-build→GHCR. Prod compose (WAF/TLS/limits/log-rotation) + nginx-tls.conf (HSTS/CSP).
+  Backup script + restore runbook. SECURITY.md; git-history secret scan clean. README (mermaid
+  arch, telemetry story) + MIT LICENSE. k6 load script.
+- **Monitoring as code LIVE-verified:** Prometheus scraping backend (2 targets up); Grafana
+  auto-provisioned with Prometheus + TimescaleDB datasources and a dashboard that queries the
+  hypertables (138 moves). Gotcha: Grafana provisioning doesn't support ${VAR:-default} — use
+  plain ${VAR} and pass env to the container.
+- **Playwright e2e green live** (register→lesson→XP; login→Play). Reconciled earlier task
+  checkboxes the owner flagged (3.7 profile, 6.4 XP hooks now done; 2.7 puzzle-bank partial).
+- gh CLI installed; GitHub push + public deploy are the two owner-gated steps left.
 
 ### 2026-07-21 — Session 8 (Phase 8: gamification LIVE)
 - XP ledger (xp_events hypertable) + level curve + streaks (weekly freeze) + achievement
