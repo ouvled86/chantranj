@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { clearStats } from '../features/stats/statsStore';
 import { api, type User } from './api';
 
 interface AuthState {
@@ -27,6 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await api.post('/api/v1/auth/logout');
     } finally {
       setUser(null);
+      clearStats();
     }
   };
 

@@ -5,11 +5,13 @@ import PathPage from './features/learn/PathPage';
 import DuelPage from './features/duel/DuelPage';
 import PlayPage from './features/play/PlayPage';
 import { AuthProvider, useAuth } from './lib/auth';
+import AchievementsPage from './pages/AchievementsPage';
 import AdminPage from './pages/AdminPage';
 import { LoginPage, RegisterPage } from './pages/AuthPages';
 import FriendsPage from './pages/FriendsPage';
 import GamesPage from './pages/GamesPage';
 import LeaderboardPage from './pages/LeaderboardPage';
+import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 
 function Protected() {
@@ -40,6 +42,8 @@ export default function App() {
               <Route path="/duel" element={<DuelPage />} />
               <Route path="/friends" element={<FriendsPage />} />
               <Route path="/leaderboards" element={<LeaderboardPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/achievements" element={<AchievementsPage />} />
               <Route path="/games" element={<GamesPage />} />
               <Route path="/admin" element={<AdminPage />} />
               <Route path="/settings" element={<SettingsPage />} />

@@ -1,6 +1,8 @@
 /** /ws/duel client: matchmaking + the live puzzle-race loop. */
 
 import { useSyncExternalStore } from 'react';
+import type { RewardSummary } from '../../lib/api';
+import { showReward } from '../stats/rewardToast';
 
 export interface DuelState {
   phase: 'idle' | 'queued' | 'racing' | 'over';
@@ -116,9 +118,12 @@ function handle(msg: { type: string; data: Record<string, unknown> }) {
       setState({ oppScore: o.score, oppCombo: o.combo, oppSolved: o.solved });
       break;
     }
-    case 'duel:over':
-      setState({ phase: 'over', result: d as DuelState['result'] });
+    case 'duel:over': {
+      const over = d as { your_score: number; opp_score: number; rating_delta: number; reward?: RewardSummary };
+      setState({ phase: 'over', result: over });
+      showReward(over.reward);
       break;
+    }
   }
 }
 

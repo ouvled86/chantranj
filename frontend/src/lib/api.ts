@@ -197,3 +197,31 @@ export interface LeaderRow {
   games: number;
   is_me: boolean;
 }
+
+// ---- gamification ----
+export interface UnlockedAchievement {
+  slug: string;
+  title: string;
+  icon: string;
+  xp: number;
+}
+
+export interface RewardSummary {
+  xp_gained: number;
+  total_xp: number;
+  level: number;
+  leveled_up: boolean;
+  streak: number;
+  unlocked: UnlockedAchievement[];
+}
+
+export interface AchievementView {
+  slug: string;
+  title: string;
+  description: string;
+  icon: string;
+  category: string;
+  xp: number;
+  unlocked: boolean;
+  unlocked_at: string | null;
+}

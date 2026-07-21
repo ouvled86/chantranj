@@ -1,7 +1,8 @@
 ﻿/** Online-play state: one socket, one store, plain React subscription. */
 
 import { useSyncExternalStore } from 'react';
-import { api } from '../../lib/api';
+import { api, type RewardSummary } from '../../lib/api';
+import { showReward } from '../stats/rewardToast';
 
 export interface ServerGameState {
   game_id: number;
@@ -145,6 +146,9 @@ function handleMessage(msg: { type: string; data: Record<string, unknown> }) {
       break;
     case 'game:opponent_connection':
       setState({ opponentConnected: (d as { connected: boolean }).connected });
+      break;
+    case 'xp:update':
+      showReward(d as RewardSummary);
       break;
     case 'coach:info': {
       const info = d as {

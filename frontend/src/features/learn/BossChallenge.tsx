@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api, type ItemDetail } from '../../lib/api';
+import { api, type ItemDetail, type RewardSummary } from '../../lib/api';
+import { showReward } from '../stats/rewardToast';
 import { GameScreen } from '../play/PlayPage';
 import { activeBossSlug, backToLobby, clearBoss, startBossGame, usePlayState } from '../play/gameStore';
 
@@ -77,10 +78,14 @@ function BossResult({ slug, outro }: { slug: string; outro: string }) {
     const gameId = play.game?.game_id;
     if (!gameId) return;
     api
-      .post<{ passed: boolean; reason: string }>(`/api/v1/learn/items/${slug}/boss/verify`, {
-        game_id: gameId,
+      .post<{ passed: boolean; reason: string; reward: RewardSummary | null }>(
+        `/api/v1/learn/items/${slug}/boss/verify`,
+        { game_id: gameId },
+      )
+      .then((v) => {
+        setVerdict(v);
+        showReward(v.reward);
       })
-      .then(setVerdict)
       .catch(() => setVerdict({ passed: false, reason: 'Could not verify the result.' }))
       .finally(() => setChecking(false));
   }, [slug, play.game?.game_id]);

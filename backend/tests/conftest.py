@@ -5,10 +5,17 @@ Env vars are set BEFORE app imports so cached Settings pick them up.
 
 import asyncio
 import os
+import tempfile
 import uuid
+from pathlib import Path
+
+# A file DB (not :memory:) so the shared engine survives the per-test asyncio.run
+# resets and the app's own portal loop — :memory:+StaticPool binds to one loop.
+_TEST_DB = Path(tempfile.gettempdir()) / "the_study_test.db"
+_TEST_DB.unlink(missing_ok=True)
 
 os.environ["ENV"] = "test"
-os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
+os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_TEST_DB.as_posix()}"
 os.environ["SECRET_KEY"] = "test-secret-key-not-for-prod-0123456789abcdef"
 os.environ["REDIS_URL"] = "redis://127.0.0.1:1/0"  # unreachable → memory fallback
 

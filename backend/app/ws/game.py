@@ -40,7 +40,35 @@ async def _authenticate(ws: WebSocket) -> int | None:
 async def on_game_over(game: LiveGame, payload: dict[str, Any]) -> None:
     """Shared with the REST layer (bot-game creation passes it as on_over)."""
     await manager.send_room(game.id, {"type": "game:over", "data": payload})
+    await _award_game_xp(game, payload["result"])
     manager.drop_room(game.id)
+
+
+async def _award_game_xp(game: LiveGame, result: str) -> None:
+    """Grant XP to the human player(s). Online rates both humans; Bot Arena the
+    human; Learn games (coached practice) grant none."""
+    from app.models import GameMode
+    from app.services import gamification
+
+    if game.mode == GameMode.LEARN or result == "ABORTED":
+        return
+
+    def event_for(color: str) -> str:
+        if result == "DRAW":
+            return "game_draw"
+        won = (result == "WHITE" and color == "w") or (result == "BLACK" and color == "b")
+        return "game_win" if won else "game_loss"
+
+    humans: list[tuple[int, str]] = []
+    if game.white_id is not None:
+        humans.append((game.white_id, "w"))
+    if game.black_id is not None:
+        humans.append((game.black_id, "b"))
+
+    async with get_session_factory()() as db:
+        for uid, color in humans:
+            summary = await gamification.on_event(db, uid, event_for(color), ref=str(game.id))
+            await manager.send_user(uid, {"type": "xp:update", "data": summary})
 
 
 async def _drive_bot(game: LiveGame) -> None:

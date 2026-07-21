@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { api, ApiError, type ItemDetail } from '../../lib/api';
+import { api, ApiError, type ItemDetail, type RewardSummary } from '../../lib/api';
+import { showReward } from '../stats/rewardToast';
 import BossChallenge from './BossChallenge';
 import DrillPlayer from './DrillPlayer';
 import LessonPlayer from './LessonPlayer';
@@ -30,8 +31,13 @@ function ItemLoader({ slug }: { slug: string }) {
     if (posted.current) return;
     posted.current = true;
     api
-      .post(`/api/v1/learn/items/${slug}/complete`)
-      .then(() => setCompleted(true))
+      .post<{ status: string; reward: RewardSummary | null }>(
+        `/api/v1/learn/items/${slug}/complete`,
+      )
+      .then((res) => {
+        setCompleted(true);
+        showReward(res.reward);
+      })
       .catch(() => {
         posted.current = false;
       });

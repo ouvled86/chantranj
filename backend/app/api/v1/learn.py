@@ -5,6 +5,8 @@ contract here is already final: DONE items stay open, exactly one item is
 AVAILABLE (the first unfinished), everything later is LOCKED. Admins bypass.
 """
 
+from typing import Any
+
 from fastapi import APIRouter
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -123,26 +125,32 @@ async def get_item(slug: str, user: CurrentUser, db: DbDep) -> ItemDetail:
     )
 
 
-async def _mark_done(db: AsyncSession, user_id: int, item_id: int) -> None:
-    if await db.get(ItemProgress, (user_id, item_id)) is None:
-        db.add(
-            ItemProgress(
-                user_id=user_id,
-                item_id=item_id,
-                status=ProgressStatus.DONE,
-                completed_at=now_utc(),
-            )
+async def _mark_done(db: AsyncSession, user_id: int, item_id: int) -> bool:
+    """Returns True if this was the first completion (caller may award XP)."""
+    if await db.get(ItemProgress, (user_id, item_id)) is not None:
+        return False
+    db.add(
+        ItemProgress(
+            user_id=user_id,
+            item_id=item_id,
+            status=ProgressStatus.DONE,
+            completed_at=now_utc(),
         )
-        await db.commit()
+    )
+    await db.commit()
+    return True
 
 
 @router.post("/items/{slug}/complete")
-async def complete_item(slug: str, user: CurrentUser, db: DbDep) -> dict[str, str]:
+async def complete_item(slug: str, user: CurrentUser, db: DbDep) -> dict[str, Any]:
+    from app.services import gamification
+
     item, _ = await _accessible_item(db, user, slug)
     if item.kind == ItemKind.BOSS:
         raise AppError(409, "boss_requires_win", "Beat the boss to complete this checkpoint")
-    await _mark_done(db, user.id, item.id)
-    return {"status": "ok"}
+    first = await _mark_done(db, user.id, item.id)
+    reward = await gamification.on_event(db, user.id, "item", ref=slug) if first else None
+    return {"status": "ok", "reward": reward}
 
 
 @router.post("/items/{slug}/boss/start", status_code=201)
@@ -181,10 +189,15 @@ async def verify_boss(
     item, _ = await _accessible_item(db, user, slug)
     if item.kind != ItemKind.BOSS or not item.boss_config:
         raise AppError(400, "not_a_boss", "This item is not a boss checkpoint")
+    from app.services import gamification
+
     game = await db.get(Game, int(body.get("game_id", 0)))
     if game is None:
         raise AppError(404, "not_found", "No such game")
     passed, reason = boss_service.verify(game, item.boss_config, user.id)
+    reward = None
     if passed:
-        await _mark_done(db, user.id, item.id)
-    return {"passed": passed, "reason": reason}
+        first = await _mark_done(db, user.id, item.id)
+        if first:
+            reward = await gamification.on_event(db, user.id, "boss", ref=slug)
+    return {"passed": passed, "reason": reason, "reward": reward}

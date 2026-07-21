@@ -19,7 +19,9 @@ coverage/
 
 # Databases / volumes
 *.sqlite3
-dev.db
+*.db
+*.db-wal
+*.db-shm
 pgdata/
 
 # OS / editor

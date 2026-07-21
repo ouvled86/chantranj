@@ -43,19 +43,27 @@ async def _username(uid: int) -> str:
 
 
 async def _on_duel_over(duel: duel_service.LiveDuel, payload: dict[str, Any]) -> None:
-    for uid in (duel.a_id, duel.b_id):
-        presence.set_status(uid, "online")
-        await duel_manager.send_user(
-            uid,
-            {
-                "type": "duel:over",
-                "data": {
-                    "your_score": payload["score_a"] if uid == duel.a_id else payload["score_b"],
-                    "opp_score": payload["score_b"] if uid == duel.a_id else payload["score_a"],
-                    "rating_delta": payload["rating_delta"].get(uid, 0),
+    from app.services import gamification
+
+    sa, sb = payload["score_a"], payload["score_b"]
+    async with get_session_factory()() as db:
+        for uid in (duel.a_id, duel.b_id):
+            mine, theirs = (sa, sb) if uid == duel.a_id else (sb, sa)
+            event = "duel_win" if mine > theirs else "duel_draw" if mine == theirs else "duel_loss"
+            reward = await gamification.on_event(db, uid, event, ref=str(duel.id))
+            presence.set_status(uid, "online")
+            await duel_manager.send_user(
+                uid,
+                {
+                    "type": "duel:over",
+                    "data": {
+                        "your_score": mine,
+                        "opp_score": theirs,
+                        "rating_delta": payload["rating_delta"].get(uid, 0),
+                        "reward": reward,
+                    },
                 },
-            },
-        )
+            )
     duel_manager.drop_room(duel.id)
 
 

@@ -8,6 +8,8 @@ import {
   declineChallenge,
   useSocial,
 } from '../features/social/socialStore';
+import { RewardToasts } from '../features/stats/rewardToast';
+import { refreshStats, useStats } from '../features/stats/statsStore';
 import { useAuth } from '../lib/auth';
 
 const navItems = [
@@ -16,6 +18,8 @@ const navItems = [
   { to: '/duel', label: 'Puzzle Duel', icon: '⚡' },
   { to: '/friends', label: 'Friends', icon: '☰' },
   { to: '/leaderboards', label: 'Leaderboards', icon: '↑' },
+  { to: '/profile', label: 'Profile', icon: '☗' },
+  { to: '/achievements', label: 'Achievements', icon: '◆' },
   { to: '/games', label: 'Archive', icon: '❦' },
   { to: '/settings', label: 'Settings', icon: '⚙' },
 ];
@@ -26,10 +30,12 @@ export default function Layout() {
   const { user, logout } = useAuth();
   const [open, setOpen] = useState(false);
   const social = useSocial();
+  const stats = useStats();
   const navigate = useNavigate();
 
   useEffect(() => {
     connectSocial();
+    refreshStats();
   }, []);
 
   // An accepted challenge (either side) hands off into the live game screen.
@@ -76,6 +82,22 @@ export default function Layout() {
           </div>
         </div>
         {nav}
+        {stats && (
+          <div className="border-t border-walnut-line px-5 py-3">
+            <div className="flex items-center justify-between font-mono text-[10px] uppercase text-muted">
+              <span className="text-gold">Lv {stats.level}</span>
+              <span>🔥 {stats.streak}</span>
+            </div>
+            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-walnut-800">
+              <div
+                className="h-full rounded-full bg-gold"
+                style={{
+                  width: `${stats.xp_for_next ? Math.round((stats.xp_into_level / stats.xp_for_next) * 100) : 0}%`,
+                }}
+              />
+            </div>
+          </div>
+        )}
         <div className="border-t border-walnut-line px-5 py-4">
           <p className="truncate text-sm">{user?.username}</p>
           <p className="font-mono text-[10px] uppercase tracking-wider text-muted">
@@ -114,6 +136,8 @@ export default function Layout() {
       <main className="min-w-0 flex-1 px-5 py-8 md:px-10">
         <Outlet />
       </main>
+
+      <RewardToasts />
 
       {social.incoming && (
         <div className="fixed bottom-4 right-4 z-40 w-72 rounded-xs bg-parchment p-4 text-parchment-ink shadow-2xl">

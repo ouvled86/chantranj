@@ -17,12 +17,12 @@
 | 5     | Engine service, bots & review (modes 2+3) | ✅ Live | 95%  |
 | 6     | Learning path & admin CMS              | ✅ Systems live | 80% |
 | 7     | Friends, presence & Puzzle Duel (mode 4) | ✅ Live | 90%  |
-| 8     | Gamification (XP, achievements, boards)| ⬜ Not started | 0%    |
+| 8     | Gamification (XP, achievements, boards)| ✅ Live | 90%  |
 | 9     | Production hardening & deployment      | ⬜ Not started | 0%    |
 
-**Overall: phases 0–7 done and live-verified. All 4 game modes work (Online, Learn, Bot Arena,
-Puzzle Duel), plus reviews, gated path + bosses, admin Content Studio, friends/presence/
-challenges, and leaderboards. Next: Phase 8 (gamification — XP, achievements, streaks, profile).**
+**Overall: phases 0–8 done and live-verified. Full product: 4 game modes, reviews, gated path
++ bosses, admin Content Studio, friends/presence/challenges, leaderboards, and gamification
+(XP/levels/streaks/achievements + profile). Only Phase 9 (production hardening) remains.**
 
 > Machine note: git + Node 26 + uv/Python 3.12 + **Docker Desktop (installed 2026-07-19,
 > WSL2 backend)**. Full compose stack runs locally: `docker compose -f
@@ -42,14 +42,14 @@ challenges, and leaderboards. Next: Phase 8 (gamification — XP, achievements, 
 
 ## Next up
 
-**→ Phase 8 (gamification): XP ledger + levels, achievement engine (evaluate the 40 seeded
-condition_json against domain events), daily streaks with freeze, leaderboards already done
-(reuse), profile v2 (rating graphs from rating_history hypertable, accuracy trend, opening
-stats from PGNs, achievement showcase), XP summary screens.** The xp_events hypertable and
-Achievement/UserAchievement/Streak tables already exist from Phase 2 — wire the event bus.
+**→ Phase 9 (production hardening & deployment):** GitHub Actions CI (ruff+mypy+pytest,
+docker build), docker-compose.prod.yml (nginx TLS, WAF, resource limits, no dev mounts),
+TLS/HSTS, Postgres backup cron + restore runbook, Grafana dashboards as code (the
+homelab-mirror payoff: game telemetry from TimescaleDB + infra metrics from Prometheus),
+Playwright e2e, load sanity, deploy + RUNBOOK. Also finally the GitHub push (task 0.10).
 
 Deferred backlog: content authoring 6.8–6.10 (Content Studio ready); spectate 7.8; Lichess
-puzzle CSV 2.7.
+puzzle CSV 2.7; profile accuracy-trend + opening-stats (8.6 slice); Redis leaderboard cache (8.5).
 
 **Dev loop gotchas (important):** full stack via compose (:8080). Docker stops on PC sleep →
 relaunch Docker Desktop, wait for engine, `docker compose ... up -d`. **`--reload` does NOT
@@ -62,6 +62,18 @@ inclusion, so introspecting `app.routes[].path` shows nothing — test routes ov
 ## Session log
 
 _Newest first. Keep entries to 2–4 lines._
+
+### 2026-07-21 — Session 8 (Phase 8: gamification LIVE)
+- XP ledger (xp_events hypertable) + level curve + streaks (weekly freeze) + achievement
+  engine evaluating condition_json from durable data; `on_event()` wired at item/boss/game/
+  duel. Reward toasts (XP/level-up/unlock), sidebar level+streak chip, Profile page (level
+  ring, ratings, rating sparkline, showcase), Achievements page. Stats + achievements REST.
+- **Found+fixed a real bug live: achievement counters weren't user-scoped → another user's
+  drill unlocked your badge. Added a two-user regression test.**
+- Test-infra: switched to a file-based SQLite test DB (WAL + busy_timeout) — :memory:
+  StaticPool couldn't survive the new cross-loop DB work in game-over. Per-test timeout 180s.
+- 60 backend tests green, ruff+mypy clean, frontend build/lint/test green. Live-verified the
+  whole reward loop in the browser.
 
 ### 2026-07-20 — Session 7 (Phase 7: friends + presence + Puzzle Duel LIVE)
 - Friend graph (one-row-per-pair, block precedence, mutual auto-accept, search), `/ws/social`

@@ -151,18 +151,16 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress / partially done (note why
 
 ## Phase 8 — Gamification
 
-- [ ] 8.1 XP ledger service + level curve; XP events wired: lesson/drill/boss complete, game win/draw, duel result, daily streak, achievement bonus
-- [ ] 8.2 Streak service (daily activity, freeze token weekly); streak UI in header
-- [ ] 8.3 Achievement engine: conditionJson evaluator on domain events; idempotent unlock; toast + confetti-free elegant unlock UI (fits the study aesthetic)
-- [ ] 8.4 Seed the 40 achievements (appendix below) with icons
-- [ ] 8.5 Leaderboards: global Elo (3 modes), weekly duel points, XP; friends-only filter; redis-cached
-- [ ] 8.6 Profile v2: rating graphs (per mode), accuracy trend, opening stats (from PGN data), achievement showcase (pin 3)
-- [ ] 8.7 Post-game & post-lesson XP summary screens ("+35 XP · streak 6 🔥")
-- [ ] 8.8 Tests: xp math, level boundaries, achievement conditions, leaderboard cache invalidation
+- [x] 8.1 XP ledger (`services/gamification.py`) → xp_events hypertable; level curve `100·(n-1)^1.6` (iterative inverse so it round-trips); `on_event()` entrypoint wired at item/boss complete (learn router), game win/draw/loss (ws game over, Online+Bot; Learn unrated), duel result (ws duel over), daily-streak + achievement bonuses
+- [x] 8.2 Streak service: daily activity, +1/day, weekly freeze token covers one missed day; streak chip in sidebar + profile
+- [x] 8.3 Achievement engine: condition_json evaluated from durable domain data (correct even if an event is missed), idempotent unlock, XP bonus; elegant toast (XP + unlock, no confetti). **Fixed a real bug found live: `_count_items_done` wasn't user-scoped → another user's drill unlocked your badge; added regression test**
+- [x] 8.4 40 achievements already seeded in Phase 2; engine evaluates the item/stage/game/duel/streak/level/bot families (theme-count, combo, comeback, time-of-day left as future no-ops — documented in code)
+- [x] 8.5 Leaderboards shipped in Phase 7 (online/bot/duel, global/friends). Redis caching → Phase 9
+- [~] 8.6 Profile v2: level ring + XP bar, per-mode ratings, rating sparkline from rating_history hypertable, streak, achievement showcase. Accuracy trend + opening stats deferred (need player_accuracy_weekly cagg wiring + PGN aggregation)
+- [x] 8.7 XP summary: reward toasts ("+N XP · Level up ✦ · Achievement unlocked") on lesson/drill/boss complete, game over (ws xp:update), and duel over
+- [x] 8.8 Tests: level-curve monotonicity/round-trip, lesson-complete XP + first-steps unlock, achievements endpoint reflects unlocks, streak increments across days, **user-scoped counting regression**, stats shape — 6 new tests; 60 backend total, all green
 
-**Achievement appendix (categories):** Learning (First Steps, Stage 1–12 clears, Perfect Drill ×10, Bookworm=all lessons), Tactics (First Blood, Fork Master, Pin Cushion, Skewered, 10/25/50 duel wins, Combo ×8), Playing (First Win, Giant Slayer=beat bot 8, Flagged!=win on time, Comeback=win from −5 eval, Marathon=classical win, 100 games), Social (First Friend, Challenger ×10, Spectator), Dedication (7/30/100-day streak, Night Owl, Early Bird, Level 10/25/50).
-
-**DoD:** playing and learning visibly feed XP/levels/streaks/achievements; leaderboards update; profile tells a player's story.
+**DoD:** ✅ verified live — completing a lesson fires +XP + "First Steps" toast, sidebar shows level/streak, Profile shows ratings/streak/showcase, Achievements page reads 2/40 with correct locked/unlocked. (Accuracy-trend + opening-stats are the one deferred slice of 8.6.)
 
 ---
 
