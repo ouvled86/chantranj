@@ -9,7 +9,7 @@
 |-------|----------------------------------------|-------------|----------|
 | v1    | Static lesson app (design + content)   | ✅ Shipped  | 100%     |
 | P     | Planning & documentation               | ✅ Shipped  | 100%     |
-| 0     | Monorepo scaffold & tooling            | ✅ Done (0.10 deferred) | 95% |
+| 0     | Monorepo scaffold & tooling            | ✅ Done     | 100% |
 | 1     | Backend foundation (auth, users, admin)| 🟨 Nearly done | 90%  |
 | 2     | Database schema & content seeding      | 🟨 Nearly done | 85%  |
 | 3     | Frontend foundation (React port)       | 🟨 Nearly done | 85%  |
@@ -20,11 +20,12 @@
 | 8     | Gamification (XP, achievements, boards)| ✅ Live | 90%  |
 | 9     | Production hardening & deployment      | ✅ Done (deploy owner-gated) | 90% |
 
-**Overall: phases 0–9 complete. Full product + production infra: CI (ruff/mypy/pytest/e2e/
-docker), prod compose (TLS/WAF/limits), Grafana dashboards on live game telemetry, backups +
-RUNBOOK, Playwright e2e, k6 load script, SECURITY doc, MIT license, portfolio README. The one
-remaining real-world step is the actual public deploy (needs the owner's box + domain) and the
-GitHub push (needs the owner's `gh auth login` — gh is installed, remote/CI staged).**
+**Overall: phases 0–9 complete + pushed to GitHub (private `chantranj`, 2026-07-22). Full
+product + production infra: CI (ruff/mypy/pytest/e2e/docker), prod compose (TLS/WAF/limits),
+Grafana dashboards on live game telemetry, backups + RUNBOOK, Playwright e2e, k6 load script,
+SECURITY doc, MIT license, portfolio README. The one remaining real-world step is the actual
+public deploy (needs the owner's box + domain). A visual redesign is planned via Claude Design
+(see docs/DESIGN_BRIEF.md); functional bugs stay in Claude Code.**
 
 > Machine note: git + Node 26 + uv/Python 3.12 + **Docker Desktop (installed 2026-07-19,
 > WSL2 backend)**. Full compose stack runs locally: `docker compose -f
@@ -42,16 +43,34 @@ GitHub push (needs the owner's `gh auth login` — gh is installed, remote/CI st
   `docs/TASKS.md`, `docs/CURRICULUM.md`.
 - No git repo yet (git init is task 0.1). No backend, no containers yet.
 
+## Session log — 2026-07-22
+
+- **Pushed to GitHub:** private repo `chantranj` (github.com/ouvled86/chantranj), `main`
+  tracks `origin/main`, all 11 commits up. Task 0.10 → done.
+- **Fixed 2 Learn-mode bugs (reported by owner), live-verified in a 3+2 Guided game:**
+  1. *Bot replied instantly* → timed games one-sided. Added `_bot_think_seconds` in
+     `services/games.py`: `drive_bot` pauses (level-scaled, capped ~6% of the bot's clock,
+     3s buffer so it can't self-flag) BEFORE applying, so the pause is charged to the bot's
+     clock. Verified: bot clock ticked ~1–2s/move instead of staying full.
+  2. *Coach verdict/hint vanished the instant the bot moved.* `coach:info` now carries
+     `moved_by`; the client (`gameStore.ts`) only writes tag/note/hint on the human's own
+     move ('w') and just refreshes the eval bar on the bot's ('b') reply. Verified: "good"
+     tag + gold hint arrow stayed on screen through the bot's reply.
+- **Frontend bug:** fixed mojibake "Â·"/"â€”" (double-encoded UTF-8) in `gameStore.ts`
+  opponent labels + a comment. Full-repo sweep: no other occurrences.
+- ruff+mypy clean, coach tests green (4), frontend tsc clean, browser console error-free.
+- Wrote `docs/DESIGN_BRIEF.md` — the Claude Design prompt for the visual redesign.
+
 ## Next up
 
-**→ Owner-gated finish line (two steps only I can't do for you):**
-1. **GitHub push:** `gh` is installed. Run `gh auth login` (once), then
-   `gh repo create chantranj --private --source . --remote origin --push`. CI runs on push.
-2. **Public deploy:** on a Docker box with a domain, follow docs/RUNBOOK.md "First deploy".
+**→ Owner-gated finish line:**
+1. **Public deploy:** on a Docker box with a domain, follow docs/RUNBOOK.md "First deploy".
+2. **Visual redesign:** run `docs/DESIGN_BRIEF.md` through Claude Design (keep the store/API/
+   WS logic untouched — it's restyling only).
 
 **Optional backlog (systems all ready):** content authoring 6.8–6.10 via Content Studio;
 Lichess puzzle CSV (2.7); profile accuracy-trend/opening-stats (8.6); Redis presence/matchmaking
-+ leaderboard cache; spectate (7.8); stretch 9.11.
++ leaderboard cache; spectate (7.8); board-theme/sound settings (3.8); stretch 9.11.
 
 ---
 _Superseded plan (done):_ **Phase 9 (production hardening & deployment):** GitHub Actions CI (ruff+mypy+pytest,

@@ -106,9 +106,16 @@ async def _coach_after_move(game: LiveGame, moved_by: str) -> None:
         drop = coach_service.win_pct(prev) - coach_service.win_pct(cp)
     hints_left, tb_left = _coach_budgets(game)
     info = coach_service.build_info(
-        game.coach_level, ply=ply, eval_cp=cp, drop=drop,
-        hints_left=hints_left, takebacks_left=tb_left,
+        game.coach_level,
+        ply=ply,
+        eval_cp=cp,
+        drop=drop,
+        hints_left=hints_left,
+        takebacks_left=tb_left,
     )
+    # The client keeps the human's move verdict on screen until their next move;
+    # a "b" refresh only updates the eval bar and must not wipe what's being read.
+    info["moved_by"] = moved_by
     await manager.send_user(game.white_id, {"type": "coach:info", "data": info})
 
 
@@ -129,8 +136,7 @@ async def _start_game(
 
     async with get_session_factory()() as db:
         users = {
-            u.id: u
-            for u in (await db.scalars(select(User).where(User.id.in_([a_id, b_id])))).all()
+            u.id: u for u in (await db.scalars(select(User).where(User.id.in_([a_id, b_id])))).all()
         }
         ratings = {
             uid: (await get_or_create_rating(db, uid, RatingMode.ONLINE)).value
@@ -245,9 +251,7 @@ async def _handle(user_id: int, msg: dict[str, Any]) -> dict[str, Any] | None:
             await game_service.resign(game, user_id)
         elif mtype == "game:draw_offer":
             await game_service.offer_draw(game, user_id)
-            await manager.send_room(
-                game.id, {"type": "game:draw_offer", "data": {"by": user_id}}
-            )
+            await manager.send_room(game.id, {"type": "game:draw_offer", "data": {"by": user_id}})
         elif mtype == "game:draw_respond":
             accepted = await game_service.respond_draw(game, user_id, bool(data.get("accept")))
             if not accepted:

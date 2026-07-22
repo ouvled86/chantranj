@@ -121,7 +121,7 @@ function handleMessage(msg: { type: string; data: Record<string, unknown> }) {
     case 'game:state':
     case 'game:move': {
       const g = d as ServerGameState;
-      // The final move can arrive right after game:over â€” update the board
+      // The final move can arrive right after game:over — update the board
       // but never resurrect a finished game.
       setState({
         game: g,
@@ -158,17 +158,26 @@ function handleMessage(msg: { type: string; data: Record<string, unknown> }) {
         critical?: boolean;
         hints_left?: number | null;
         takebacks_left?: number | null;
+        moved_by?: 'w' | 'b';
       };
+      // Only the human's own move produces a verdict. The bot's reply sends a
+      // tagless refresh (moved_by === 'b') that must update the eval bar WITHOUT
+      // wiping the verdict/hint the player is still reading.
+      const afterHuman = info.moved_by !== 'b';
       setState({
         coach: {
           ...state.coach,
           evalCp: info.eval_cp ?? state.coach.evalCp,
-          tag: info.tag ?? null,
-          note: info.note ?? null,
-          critical: info.critical ?? false,
           hintsLeft: info.hints_left ?? null,
           takebacksLeft: info.takebacks_left ?? null,
-          hintMove: null, // a new position invalidates the old hint arrow
+          ...(afterHuman
+            ? {
+                tag: info.tag ?? null,
+                note: info.note ?? null,
+                critical: info.critical ?? false,
+                hintMove: null, // the human just moved — the old hint arrow is stale
+              }
+            : {}),
         },
       });
       break;
@@ -290,7 +299,7 @@ export async function startBotGame(
     phase: 'playing',
     myColor: 'w',
     opponent: {
-      username: coachLevel ? `Coach L${coachLevel} Â· Bot ${level}` : `Stockfish Â· Bot ${level}`,
+      username: coachLevel ? `Coach L${coachLevel} · Bot ${level}` : `Stockfish · Bot ${level}`,
       rating: BOT_ANCHORS[level],
     },
     over: null,

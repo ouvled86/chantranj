@@ -11,6 +11,7 @@ a slow Stockfish can never freeze move handling.
 
 import asyncio
 import contextlib
+import random
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -206,6 +207,26 @@ async def play_bot_move(game: LiveGame, uci: str) -> dict[str, Any] | None:
         return await _apply_locked(game, uci, None, game.bot_color)
 
 
+def _bot_think_seconds(game: LiveGame) -> float:
+    """A human-like pause before the engine replies.
+
+    This is also what makes *timed* bot games fair: the move is applied AFTER the
+    pause, so the elapsed time is charged to the bot's clock (see _apply_locked's
+    monotonic elapsed). Without it the engine answered for free and the human was
+    the only side ever spending time — one-sided flag losses. The pause also gives
+    the learner a beat to read the coach's verdict before the board changes.
+    """
+    level = game.bot_level or 1
+    # Base beat 0.45–1.25s; stronger bots ponder a touch longer (up to ~1s more).
+    think = 0.45 + random.uniform(0.0, 0.8) + min(level, 8) * 0.12
+    if game.base_ms is not None:
+        bot_ms = game.white_ms if game.bot_color == chess.WHITE else game.black_ms
+        # Spend at most ~6% of the remaining clock, and keep a 3s buffer so the
+        # artificial pause can never be what flags the bot (blitz scrambles → fast).
+        think = min(think, bot_ms * 0.06 / 1000, max(0.0, (bot_ms - 3000) / 1000))
+    return max(0.0, think)
+
+
 async def drive_bot(
     game: LiveGame, notify: Callable[[dict[str, Any]], Awaitable[None]] | None = None
 ) -> None:
@@ -223,6 +244,9 @@ async def drive_bot(
     except EngineUnavailable as exc:
         log.warning("bot_move_failed", game_id=game.id, error=str(exc))
         return
+    think = _bot_think_seconds(game)
+    if think > 0:
+        await asyncio.sleep(think)  # charged to the bot's clock by _apply_locked
     payload = await play_bot_move(game, uci)
     if payload is not None and notify is not None:
         await notify(payload)  # final position included even if the bot just mated
@@ -458,9 +482,7 @@ async def _finish_locked(game: LiveGame, result: GameResult, reason: str) -> Non
                     anchor = BOT_ANCHOR_RATING[game.bot_level]
                     if human_id is not None:
                         rating = await elo.get_or_create_rating(db, human_id, RatingMode.BOT)
-                        human_delta = elo.delta(
-                            rating.value, anchor, human_score, rating.games
-                        )
+                        human_delta = elo.delta(rating.value, anchor, human_score, rating.games)
                         rating.value += human_delta
                         rating.games += 1
                         if human_white:
@@ -477,15 +499,21 @@ async def _finish_locked(game: LiveGame, result: GameResult, reason: str) -> Non
                 mode = RatingMode.ONLINE if online_mode else RatingMode.BOT
                 r = await elo.get_or_create_rating(db, game.white_id, mode)
                 await writer.record_rating(
-                    user_id=game.white_id, mode=mode.value, value=r.value,
-                    delta=delta_w, game_id=game.id,
+                    user_id=game.white_id,
+                    mode=mode.value,
+                    value=r.value,
+                    delta=delta_w,
+                    game_id=game.id,
                 )
             if delta_b is not None and game.black_id is not None:
                 mode = RatingMode.ONLINE if online_mode else RatingMode.BOT
                 r = await elo.get_or_create_rating(db, game.black_id, mode)
                 await writer.record_rating(
-                    user_id=game.black_id, mode=mode.value, value=r.value,
-                    delta=delta_b, game_id=game.id,
+                    user_id=game.black_id,
+                    mode=mode.value,
+                    value=r.value,
+                    delta=delta_b,
+                    game_id=game.id,
                 )
 
     _registry.pop(game.id, None)
