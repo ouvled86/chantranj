@@ -78,10 +78,13 @@ public deploy (needs the owner's box + domain). A visual redesign is planned via
 - **App renamed "The Study" → "Shantranj"** repo-wide (owner decision): browser title, docs,
   backend `app_name` + PGN `Event`, engine title, Grafana dashboard title/folder. Machine
   identifiers (package slugs, dashboard `uid`, container prefix) deliberately left alone.
-- **Fixed the CI e2e job, which had never passed:** the compose `frontend` service bind-mounts
-  `frontend/` and `npm install`s as **root**, so the runner's `npm ci` hit `EACCES rmdir
-  node_modules` (exit 243). Added an anonymous `/app/node_modules` volume so container and host
-  keep separate trees (also removes the Linux/Windows native-binary hazard locally).
+- **Fixed the CI e2e job, which had never passed** (exit 243, `EACCES` on `frontend/
+  node_modules`). Two causes, both needed fixing: (1) the compose `frontend` service
+  bind-mounts `frontend/` and `npm install`s as **root** → anonymous `/app/node_modules`
+  volume so container and host keep separate trees (also kills the Linux/Windows
+  native-binary hazard locally); (2) Docker still creates the **mountpoint** as root, so
+  `npm ci` must run **before** `compose up` → reordered the e2e job.
+  **CI is now fully green (all 5 jobs) for the first time.**
 - Verified: `tsc -b` + eslint + 9 unit tests + 2 Playwright e2e + production build green;
   60/60 backend tests pass (ruff + mypy strict clean, 68 files); live browser pass over every
   route, console error-free; Learn game replayed end-to-end (verdict chip persists after the
