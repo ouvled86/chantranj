@@ -11,20 +11,33 @@ import {
 import { RewardToasts } from '../features/stats/rewardToast';
 import { refreshStats, useStats } from '../features/stats/statsStore';
 import { useAuth } from '../lib/auth';
+import {
+  ArchiveIcon,
+  DuelIcon,
+  FlameIcon,
+  FriendsIcon,
+  PathIcon,
+  PlayIcon,
+  ProfileIcon,
+  QuillIcon,
+  RanksIcon,
+  RosetteIcon,
+  SettingsIcon,
+} from './icons';
 
 const navItems = [
-  { to: '/learn', label: 'The Path', icon: '§' },
-  { to: '/play', label: 'Play', icon: '⚔' },
-  { to: '/duel', label: 'Puzzle Duel', icon: '⚡' },
-  { to: '/friends', label: 'Friends', icon: '☰' },
-  { to: '/leaderboards', label: 'Leaderboards', icon: '↑' },
-  { to: '/profile', label: 'Profile', icon: '☗' },
-  { to: '/achievements', label: 'Achievements', icon: '◆' },
-  { to: '/games', label: 'Archive', icon: '❦' },
-  { to: '/settings', label: 'Settings', icon: '⚙' },
+  { to: '/learn', label: 'The Path', Icon: PathIcon },
+  { to: '/play', label: 'Play', Icon: PlayIcon },
+  { to: '/duel', label: 'Puzzle Duel', Icon: DuelIcon },
+  { to: '/friends', label: 'Friends', Icon: FriendsIcon },
+  { to: '/leaderboards', label: 'Leaderboards', Icon: RanksIcon },
+  { to: '/profile', label: 'Profile', Icon: ProfileIcon },
+  { to: '/achievements', label: 'Achievements', Icon: RosetteIcon },
+  { to: '/games', label: 'Archive', Icon: ArchiveIcon },
+  { to: '/settings', label: 'Settings', Icon: SettingsIcon },
 ];
 
-const adminNavItem = { to: '/admin', label: 'Content Studio', icon: '✎' };
+const adminNavItem = { to: '/admin', label: 'Content Studio', Icon: QuillIcon };
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -50,115 +63,145 @@ export default function Layout() {
 
   const links = user?.role === 'ADMIN' ? [...navItems, adminNavItem] : navItems;
   const nav = (
-    <nav className="flex-1 space-y-1 px-3 py-4">
+    <nav className="flex-1 space-y-[3px] px-3.5 py-4">
       {links.map((item) => (
         <NavLink
           key={item.to}
           to={item.to}
           onClick={() => setOpen(false)}
           className={({ isActive }) =>
-            `flex items-center gap-3 rounded-xs px-3 py-2 text-sm transition ${
+            `flex h-[38px] items-center gap-3 rounded-[6px] px-3 text-sm transition-colors duration-150 ${
               isActive
-                ? 'bg-gold/15 text-gold border-l-2 border-gold'
-                : 'text-cream hover:bg-walnut-800 border-l-2 border-transparent'
+                ? 'bg-gradient-to-r from-gold/[.18] to-gold/[.03] text-gold-soft shadow-[inset_2.5px_0_0_-0.5px_#d9a441,inset_0_0_0_1px_rgba(217,164,65,.15)]'
+                : 'text-[#c9bda6] hover:bg-walnut-850/70 hover:text-parchment'
             }`
           }
         >
-          <span className="w-4 text-center font-mono text-xs">{item.icon}</span>
-          {item.label}
+          {({ isActive }) => (
+            <>
+              <item.Icon className={isActive ? 'opacity-100' : 'opacity-80'} />
+              {item.label}
+            </>
+          )}
         </NavLink>
       ))}
     </nav>
   );
 
-  return (
-    <div className="flex min-h-screen">
-      <aside className="sticky top-0 hidden h-screen w-64 flex-col border-r border-walnut-line bg-walnut-950 md:flex">
-        <div className="flex items-center gap-3 border-b border-walnut-line px-5 py-5">
-          <span className="text-3xl text-gold">♞</span>
-          <div>
-            <h1 className="font-display text-lg font-bold leading-tight">The Study</h1>
-            <p className="font-display text-[11px] italic text-muted">Chess beyond the rules</p>
+  const lockup = (
+    <div className="flex items-center gap-3.5 border-b border-walnut-line/70 px-5 py-6">
+      <span className="flex h-[46px] w-[46px] flex-none items-center justify-center rounded-[3px] border border-gold/55 bg-gradient-to-br from-gold/[.14] to-gold/[.02] text-[27px] leading-none text-gold outline outline-1 outline-offset-[3px] outline-gold/[.18]">
+        ♞
+      </span>
+      <div>
+        <h1 className="font-display text-[21px] font-semibold leading-tight tracking-[.02em]">
+          Shantranj
+        </h1>
+        <p className="font-display text-[11px] italic text-muted">Chess beyond the rules</p>
+      </div>
+    </div>
+  );
+
+  const footer = (
+    <>
+      {stats && (
+        <div className="border-t border-walnut-line/70 px-5 py-3.5">
+          <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[.14em]">
+            <span className="text-gold">Lv {stats.level}</span>
+            <span className="flex items-center gap-1 text-muted">
+              <FlameIcon size={12} strokeWidth={1.7} className="text-gold" />
+              {stats.streak}
+            </span>
+          </div>
+          <div className="xp-track mt-2 h-1.5 w-full">
+            <div
+              className="xp-fill"
+              style={{
+                width: `${stats.xp_for_next ? Math.round((stats.xp_into_level / stats.xp_for_next) * 100) : 0}%`,
+              }}
+            />
+          </div>
+          <div className="mt-1 font-mono text-[10px] text-parchment-muted">
+            {stats.xp_into_level} / {stats.xp_for_next} XP
           </div>
         </div>
-        {nav}
-        {stats && (
-          <div className="border-t border-walnut-line px-5 py-3">
-            <div className="flex items-center justify-between font-mono text-[10px] uppercase text-muted">
-              <span className="text-gold">Lv {stats.level}</span>
-              <span>🔥 {stats.streak}</span>
-            </div>
-            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-walnut-800">
-              <div
-                className="h-full rounded-full bg-gold"
-                style={{
-                  width: `${stats.xp_for_next ? Math.round((stats.xp_into_level / stats.xp_for_next) * 100) : 0}%`,
-                }}
-              />
-            </div>
-          </div>
-        )}
-        <div className="border-t border-walnut-line px-5 py-4">
+      )}
+      <div className="flex items-center gap-3 border-t border-walnut-line/70 px-5 py-4">
+        <span className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-full bg-gradient-to-br from-gold-bright to-gold-deep font-display text-base font-bold text-walnut-950">
+          {user?.username?.[0]?.toUpperCase() ?? '?'}
+        </span>
+        <div className="min-w-0 flex-1">
           <p className="truncate text-sm">{user?.username}</p>
-          <p className="font-mono text-[10px] uppercase tracking-wider text-muted">
+          <p className="font-mono text-[9px] uppercase tracking-[.16em] text-parchment-muted">
             {user?.role === 'ADMIN' ? 'administrator' : 'student'}
           </p>
-          <button
-            onClick={logout}
-            className="mt-2 rounded-xs border border-walnut-line px-3 py-1 text-xs text-muted hover:text-cream"
-          >
-            Sign out
-          </button>
         </div>
+        <button
+          onClick={logout}
+          className="border-b border-muted/40 text-xs text-muted transition-colors hover:text-cream"
+        >
+          Sign out
+        </button>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="flex min-h-screen">
+      <aside className="sticky top-0 hidden h-screen w-[264px] flex-col border-r border-walnut-line/80 bg-gradient-to-b from-[#1c150d] to-[#171008] shadow-[inset_-1px_0_0_rgba(0,0,0,.4)] md:flex">
+        {lockup}
+        {nav}
+        {footer}
       </aside>
 
-      {/* mobile */}
+      {/* mobile: knight FAB → drawer */}
       <button
         onClick={() => setOpen(!open)}
-        className="fixed bottom-4 left-4 z-30 rounded-full bg-gold px-4 py-2 text-sm font-bold text-walnut-950 shadow-lg md:hidden"
+        aria-label="Menu"
+        className="fixed bottom-4 left-4 z-30 flex h-[54px] w-[54px] items-center justify-center rounded-full bg-gradient-to-br from-gold-bright to-gold-deep text-[26px] text-walnut-950 shadow-[0_14px_30px_-8px_rgba(0,0,0,.7),inset_0_1px_0_rgba(255,255,255,.35)] md:hidden"
       >
-        ☰ Menu
+        ♞
       </button>
       {open && (
-        <div className="fixed inset-0 z-20 bg-black/60 md:hidden" onClick={() => setOpen(false)}>
+        <div className="fixed inset-0 z-20 bg-[#0a0704]/70 md:hidden" onClick={() => setOpen(false)}>
           <aside
-            className="flex h-full w-72 flex-col bg-walnut-950"
+            className="flex h-full w-[288px] flex-col bg-gradient-to-b from-[#1c150d] to-[#171008] shadow-[30px_0_60px_rgba(0,0,0,.6)]"
             onClick={(e) => e.stopPropagation()}
           >
+            {lockup}
             {nav}
-            <button onClick={logout} className="border-t border-walnut-line px-5 py-4 text-left text-sm text-muted">
-              Sign out ({user?.username})
-            </button>
+            {footer}
           </aside>
         </div>
       )}
 
-      <main className="min-w-0 flex-1 px-5 py-8 md:px-10">
+      <main className="min-w-0 flex-1 px-5 py-8 md:px-10 md:py-10">
         <Outlet />
       </main>
 
       <RewardToasts />
 
       {social.incoming && (
-        <div className="fixed bottom-4 right-4 z-40 w-72 rounded-xs bg-parchment p-4 text-parchment-ink shadow-2xl">
-          <div className="font-mono text-[10px] uppercase tracking-widest text-[#8c5f22]">
+        <div className="parchment-card card-rise fixed bottom-4 right-4 z-40 w-72 p-4">
+          <div className="rule-gold" />
+          <div className="font-mono text-[10px] uppercase tracking-[.18em] text-[#8c5f22]">
             Challenge
           </div>
           <p className="mt-1 text-sm">
             <b>{social.incoming.from_username}</b> challenges you —{' '}
             {social.incoming.time_control.base_min ?? '∞'}+{social.incoming.time_control.inc_sec}
-            {social.incoming.rated ? ' rated' : ' casual'}
+            {social.incoming.rated ? ', rated' : ', casual'}
           </p>
           <div className="mt-3 flex gap-2">
             <button
               onClick={() => acceptChallenge(social.incoming!.challenge_id)}
-              className="rounded-xs bg-gold px-3 py-1 text-xs font-bold text-walnut-950"
+              className="btn-primary rounded-[5px] px-3.5 py-1 text-xs"
             >
               Accept
             </button>
             <button
               onClick={() => declineChallenge(social.incoming!.challenge_id)}
-              className="rounded-xs border border-[#c9b78d] px-3 py-1 text-xs"
+              className="rounded-[5px] border border-[#c4ae7f] px-3.5 py-1 text-xs"
             >
               Decline
             </button>

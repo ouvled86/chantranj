@@ -1,4 +1,4 @@
-﻿# PROGRESS — The Study
+﻿# PROGRESS — Shantranj
 
 > Live tracker. Read this first every session. Update it every time a task lands.
 > Detailed checkboxes live in [docs/TASKS.md](docs/TASKS.md).
@@ -61,12 +61,41 @@ public deploy (needs the owner's box + domain). A visual redesign is planned via
 - ruff+mypy clean, coach tests green (4), frontend tsc clean, browser console error-free.
 - Wrote `docs/DESIGN_BRIEF.md` — the Claude Design prompt for the visual redesign.
 
+## Session log — 2026-07-26
+
+- **Merged the Claude Design redesign** (`frontend-v2/handoff` → `frontend/`, staging folder
+  deleted; recipes preserved as `docs/REDESIGN_HANDOFF.md`). 9 files: new `components/icons.tsx`
+  (engraved inline-SVG set replacing the Unicode glyphs) + restyled `index.css` (elevation/
+  radius tokens, `.panel`/`.parchment-card`/`.btn-*`/`.chip`/`.verdict-*`/`.medal`/`.seal`),
+  `board.css` (framed board), `Layout`, `AuthPages`, `PathPage`, `PlayPage`, `CoachPanel`, `Clock`.
+  Stores/api/ws/routes/Board input logic untouched, as briefed.
+- **Two fixes on top of the package** (it shipped broken in both):
+  1. `PlayPage` failed `tsc -b` (TS18048) — `coach_level` is optional so `!== null` still
+     leaves `undefined`; now `!= null`. **Note: `tsc -p tsconfig.json` is a NO-OP here**
+     (root config is `files: []` + references) — the real gate is `tsc -b` / `npm run build`.
+  2. `EvalBar` rendered 12×2px — `h-full` can't resolve in a flex row with no definite
+     height; now `self-stretch` (verified 12×561 beside the board).
+- **App renamed "The Study" → "Shantranj"** repo-wide (owner decision): browser title, docs,
+  backend `app_name` + PGN `Event`, engine title, Grafana dashboard title/folder. Machine
+  identifiers (package slugs, dashboard `uid`, container prefix) deliberately left alone.
+- **Fixed the CI e2e job, which had never passed:** the compose `frontend` service bind-mounts
+  `frontend/` and `npm install`s as **root**, so the runner's `npm ci` hit `EACCES rmdir
+  node_modules` (exit 243). Added an anonymous `/app/node_modules` volume so container and host
+  keep separate trees (also removes the Linux/Windows native-binary hazard locally).
+- Verified: `tsc -b` + eslint + 9 unit tests + 2 Playwright e2e + production build green;
+  60/60 backend tests pass (ruff + mypy strict clean, 68 files); live browser pass over every
+  route, console error-free; Learn game replayed end-to-end (verdict chip persists after the
+  bot's reply, eval bar tracks, move ledger, flag/result card).
+- Known local-only artifact: `pytest` hangs at **process exit** after all 60 tests pass
+  (aiosqlite + anyio portal teardown on this Windows/Docker setup). CI on Postgres is green.
+
 ## Next up
 
 **→ Owner-gated finish line:**
 1. **Public deploy:** on a Docker box with a domain, follow docs/RUNBOOK.md "First deploy".
-2. **Visual redesign:** run `docs/DESIGN_BRIEF.md` through Claude Design (keep the store/API/
-   WS logic untouched — it's restyling only).
+2. **Finish the redesign:** apply `docs/REDESIGN_HANDOFF.md` recipes to the remaining screens
+   (Profile, Achievements, Duel, Boss, Friends, Leaderboard, Archive, lesson/drill players,
+   Admin, Settings, rewardToast) — they still use the old flat styling.
 
 **Optional backlog (systems all ready):** content authoring 6.8–6.10 via Content Studio;
 Lichess puzzle CSV (2.7); profile accuracy-trend/opening-stats (8.6); Redis presence/matchmaking
@@ -227,7 +256,7 @@ _Newest first. Keep entries to 2–4 lines._
 - Started Phase 0 execution (git init → scaffold).
 
 ### 2026-07-18 — Session 1 (planning)
-- Built and verified v1: 27-item static lesson app ("The Study"), walnut/parchment design,
+- Built and verified v1: 27-item static lesson app ("Shantranj"), walnut/parchment design,
   all lessons + drills tested end-to-end in browser (27/27 completable, no JS errors).
 - Inspected owner's ft_transcendence + Inception repos; locked the stack to mirror them
   (Express5/TS/Prisma/Postgres/Socket.IO + React19/Vite/Tailwind + Compose/NGINX/Prom/Grafana).

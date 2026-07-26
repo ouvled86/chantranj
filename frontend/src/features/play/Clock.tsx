@@ -29,12 +29,12 @@ export default function Clock({
 
   return (
     <span
-      className={`rounded-xs px-3 py-1 font-mono text-xl tabular-nums ${
+      className={`rounded-[6px] border px-3.5 py-1 font-mono text-[21px] tabular-nums transition-colors duration-200 ${
         running
           ? low
-            ? 'bg-wrong/25 text-wrong'
-            : 'bg-gold/20 text-gold'
-          : 'bg-walnut-800 text-muted'
+            ? 'border-wrong/60 bg-wrong/20 text-[#e37a60] shadow-[0_0_18px_-6px_rgba(200,80,60,.6)]'
+            : 'border-gold/50 bg-gradient-to-b from-gold/[.22] to-gold/[.08] text-gold-bright shadow-glow-gold'
+          : 'border-walnut-edge bg-[#241b10] text-[#8f8065]'
       }`}
     >
       {mm}:{ss}

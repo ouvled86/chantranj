@@ -1,4 +1,4 @@
-# ♞ The Study — Chess Training Platform
+# ♞ Shantranj — Chess Training Platform
 
 A production-grade chess improvement platform: a gated, hand-verified learning path;
 real-time online play; bot games with a five-level live coach; head-to-head puzzle duels;

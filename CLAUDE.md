@@ -1,4 +1,4 @@
-# The Study — Chess Training Platform
+# Shantranj — Chess Training Platform
 
 Portfolio project: a production-grade chess training web app (lessons, bots with live coaching,
 online play, friends, achievements). Owner is a 1337 (42 Network) student on a DevOps

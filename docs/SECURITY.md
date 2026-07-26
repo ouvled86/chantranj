@@ -1,4 +1,4 @@
-# SECURITY — The Study
+# SECURITY — Shantranj
 
 ## Secrets
 

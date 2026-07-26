@@ -1,4 +1,4 @@
-# The Study — dev workflow (docker-first; works in Git Bash / Linux / WSL)
+# Shantranj — dev workflow (docker-first; works in Git Bash / Linux / WSL)
 
 COMPOSE_DEV  := docker compose -f devops/compose/docker-compose.dev.yml
 COMPOSE_PROD := docker compose -f devops/compose/docker-compose.prod.yml

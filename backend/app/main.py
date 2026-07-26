@@ -1,4 +1,4 @@
-"""FastAPI application factory for The Study API."""
+"""FastAPI application factory for the Shantranj API."""
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager

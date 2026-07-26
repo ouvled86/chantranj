@@ -5,25 +5,30 @@ import { useAuth } from '../lib/auth';
 
 function AuthShell({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <main className="flex min-h-screen items-center justify-center p-6">
-      <div className="w-full max-w-sm">
-        <div className="mb-6 text-center">
-          <div className="text-4xl text-gold">♞</div>
-          <h1 className="font-display mt-2 text-3xl font-bold">The Study</h1>
-          <p className="font-display italic text-muted">{title}</p>
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden p-6 [background:radial-gradient(ellipse_90%_65%_at_50%_-12%,#3d2e1a,#1a140e_70%),#1a140e]">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -bottom-28 -right-16 select-none text-[520px] leading-none text-gold/5"
+      >
+        ♞
+      </div>
+      <div aria-hidden className="pointer-events-none absolute inset-0 shadow-[inset_0_0_180px_rgba(0,0,0,.55)]" />
+      <div className="relative w-full max-w-sm">
+        <div className="mb-7 text-center">
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-[4px] border border-gold/55 bg-gradient-to-br from-gold/[.14] to-gold/[.02] text-[33px] text-gold outline outline-1 outline-offset-4 outline-gold/20">
+            ♞
+          </span>
+          <h1 className="mt-4 font-display text-[38px] font-semibold tracking-[.02em]">Shantranj</h1>
+          <p className="font-display text-[15px] italic text-muted">{title}</p>
         </div>
-        <div className="relative rounded-xs bg-parchment p-6 text-parchment-ink shadow-xl">
-          <div className="absolute left-6 right-6 top-0 h-[3px] rounded-b-xs bg-gold" />
+        <div className="parchment-card card-rise p-6">
+          <div className="rule-gold" />
           {children}
         </div>
       </div>
     </main>
   );
 }
-
-const inputCls =
-  'w-full rounded-xs border border-[#c9b78d] bg-[#fbf6e9] px-3 py-2 text-sm text-parchment-ink outline-none focus:border-gold';
-const labelCls = 'mb-1 block font-mono text-[11px] uppercase tracking-wider text-parchment-muted';
 
 export function LoginPage() {
   const { user, setUser } = useAuth();
@@ -51,43 +56,45 @@ export function LoginPage() {
   };
 
   return (
-    <AuthShell title="Welcome back">
+    <AuthShell title="Chess beyond the rules">
       <form onSubmit={submit} className="space-y-4">
         <div>
-          <label className={labelCls}>Email or username</label>
+          <label className="label-parchment">Email or username</label>
           <input
-            className={inputCls}
+            className="input-parchment"
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
             autoFocus
           />
         </div>
         <div>
-          <label className={labelCls}>Password</label>
+          <label className="label-parchment">Password</label>
           <input
-            className={inputCls}
+            className="input-parchment"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
         </div>
         {error && <p className="text-sm text-wrong">{error}</p>}
-        <button
-          disabled={busy}
-          className="w-full rounded-xs bg-gold py-2 font-bold text-walnut-950 hover:bg-[#e5b458] disabled:opacity-50"
-        >
+        <button disabled={busy} className="btn-primary w-full py-2.5">
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
+        <div className="flex items-center gap-2.5 font-mono text-[9px] uppercase tracking-[.2em] text-[#a8946c]">
+          <span className="h-px flex-1 bg-[#d3c096]" />
+          or
+          <span className="h-px flex-1 bg-[#d3c096]" />
+        </div>
         <a
           href="/api/v1/auth/google"
-          className="block w-full rounded-xs border border-[#c9b78d] py-2 text-center text-sm hover:border-gold"
+          className="block w-full rounded-[6px] border border-[#c4ae7f] py-2 text-center text-sm transition-colors hover:border-gold"
         >
           Continue with Google
         </a>
-        <p className="text-center text-sm text-parchment-muted">
+        <p className="text-center text-[13.5px] text-parchment-muted">
           New here?{' '}
           <Link to="/register" className="text-[#8c5f22] underline">
-            Create an account
+            Begin your study
           </Link>
         </p>
       </form>
@@ -125,9 +132,9 @@ export function RegisterPage() {
     <AuthShell title="Begin your study">
       <form onSubmit={submit} className="space-y-4">
         <div>
-          <label className={labelCls}>Email</label>
+          <label className="label-parchment">Email</label>
           <input
-            className={inputCls}
+            className="input-parchment"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -135,18 +142,18 @@ export function RegisterPage() {
           />
         </div>
         <div>
-          <label className={labelCls}>Username</label>
+          <label className="label-parchment">Username</label>
           <input
-            className={inputCls}
+            className="input-parchment"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             placeholder="3–20 letters, digits, _"
           />
         </div>
         <div>
-          <label className={labelCls}>Password</label>
+          <label className="label-parchment">Password</label>
           <input
-            className={inputCls}
+            className="input-parchment"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -154,13 +161,10 @@ export function RegisterPage() {
           />
         </div>
         {error && <p className="text-sm text-wrong">{error}</p>}
-        <button
-          disabled={busy}
-          className="w-full rounded-xs bg-gold py-2 font-bold text-walnut-950 hover:bg-[#e5b458] disabled:opacity-50"
-        >
+        <button disabled={busy} className="btn-primary w-full py-2.5">
           {busy ? 'Creating…' : 'Create account'}
         </button>
-        <p className="text-center text-sm text-parchment-muted">
+        <p className="text-center text-[13.5px] text-parchment-muted">
           Already studying?{' '}
           <Link to="/login" className="text-[#8c5f22] underline">
             Sign in

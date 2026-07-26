@@ -1,4 +1,4 @@
-# ARCHITECTURE — The Study
+# ARCHITECTURE — Shantranj
 
 Technical contracts. Keep in sync with implementation; when code and this doc disagree,
 fix one of them in the same session. Stack: Python 3.12 + FastAPI + TimescaleDB (see PLAN §2).

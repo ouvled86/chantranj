@@ -71,7 +71,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     _drain_pool()
 
 
-app = FastAPI(title="The Study — Engine Service", version="0.2.0", lifespan=lifespan)
+app = FastAPI(title="Shantranj — Engine Service", version="0.2.0", lifespan=lifespan)
 
 
 def _is_dead(engine: chess.engine.Protocol) -> bool:

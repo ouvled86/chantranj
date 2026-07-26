@@ -1,7 +1,7 @@
 [project]
 name = "the-study-engine"
 version = "0.1.0"
-description = "The Study — Stockfish UCI wrapper service"
+description = "Shantranj — Stockfish UCI wrapper service"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",

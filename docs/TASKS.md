@@ -1,4 +1,4 @@
-# TASKS — The Study
+# TASKS — Shantranj
 
 > The single source of truth for execution. Mark `[x]` the moment a task is done AND verified.
 > Each phase has a **Definition of Done** — do not start the next phase until it holds
@@ -65,7 +65,8 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress / partially done (note why
 
 ## Phase 3 — Frontend foundation (React port of v1)
 
-- [x] 3.1 Design tokens ported to Tailwind 4 `@theme` (done in Phase 0; board CSS ported as `styles/board.css` this phase)
+- [x] 3.1 Design tokens ported to Tailwind 4 `@theme` (done in Phase 0; board CSS ported as `styles/board.css` this phase). **2026-07-26 redesign:** tokens extended (elevation `--shadow-e1/e2/e3`, brass/glow, radius, walnut/parchment ramp) + shared component classes; app renamed **Shantranj**; new `components/icons.tsx` inline-SVG set. Merged from the Claude Design handoff — see `docs/REDESIGN_HANDOFF.md`
+- [~] 3.10 Redesign rollout: Layout, AuthPages, PathPage, PlayPage, CoachPanel, Clock, board + foundations done and verified. Remaining screens (Profile, Achievements, Duel, Boss, Friends, Leaderboard, Archive, lesson/drill players, Admin, Settings, rewardToast) still on the old flat styling — recipes in `docs/REDESIGN_HANDOFF.md`
 - [x] 3.2 App shell: react-router 7, sidebar layout (desktop + mobile drawer), auth-aware nav, protected routes — *error boundary + toasts deferred to Phase 4 polish*
 - [x] 3.3 Auth pages (parchment cards): register, login, Google button (503 till creds), logout; silent refresh-retry in the API client keeps sessions alive
 - [x] 3.4 `<Board/>` port: orientation flip, marks, SVG arrows, candidate dots, last-move, click input, auto-queen, shake — *drag input + underpromotion picker + keyboard a11y deferred (v1 parity is click-only)*
@@ -171,7 +172,7 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress / partially done (note why
 - [x] 9.3 `prod/nginx-tls.conf`: HTTP→HTTPS redirect + ACME path, TLS1.2/1.3, HSTS preload + full security-header set + locked CSP, /metrics denied, /grafana sub-path; certbot webroot flow in RUNBOOK
 - [x] 9.4 `prod/backup.sh` nightly pg_dump + gzip + 7-day rotation; tested restore procedure + cron in RUNBOOK
 - [x] 9.5 Monitoring as code: Prometheus scrape + `alerts.yml` (5xx/p95/backend-down); Grafana provisioned datasources (Prometheus + **TimescaleDB**) + dashboard mixing infra RED + game telemetry (moves/engine-latency/active-players/XP/rating). **Verified live: 2 targets UP, dashboard queries hypertables (138 moves)**
-- [x] 9.6 Playwright e2e (`frontend/e2e/`): register→complete lesson→earn XP, and login→Play lobby. **Both pass live against :8080**; wired into CI as its own job
+- [x] 9.6 Playwright e2e (`frontend/e2e/`): register→complete lesson→earn XP, and login→Play lobby. **Both pass live against :8080**; wired into CI as its own job. **2026-07-26: fixed the CI e2e job — it had never passed.** The compose `frontend` service bind-mounts `frontend/` and runs `npm install` as root, so the runner's `npm ci` died on `EACCES rmdir node_modules` (exit 243). Added an anonymous `/app/node_modules` volume: container and host now keep separate dependency trees
 - [x] 9.7 k6 load-sanity script (`devops/loadtest/browse.js`): 200-VU ramp, p95<800ms + <1% error thresholds; `make loadtest`. (Run on a deploy box, not this laptop — documented)
 - [x] 9.8 SECURITY.md (secrets, authN/Z, web hardening); `.env.example` complete; **git-history secret scan clean** (.env untracked, no hard-coded secrets)
 - [~] 9.9 Deploy: full VPS deploy guide + smoke steps in RUNBOOK; actual deploy pending the owner's box/domain

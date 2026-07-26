@@ -1,7 +1,7 @@
 [project]
 name = "the-study-backend"
 version = "0.1.0"
-description = "The Study — chess training platform API (FastAPI + TimescaleDB)"
+description = "Shantranj — chess training platform API (FastAPI + TimescaleDB)"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",

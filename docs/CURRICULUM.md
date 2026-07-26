@@ -1,4 +1,4 @@
-# CURRICULUM — The Study learning path
+# CURRICULUM — Shantranj learning path
 
 The redesigned educative content: a **single gated path**, easy → hard, that a normal user
 walks linearly (finish an item to unlock the next; beat the stage **boss** to unlock the next
@@ -124,7 +124,7 @@ Unmarked items are the authoring backlog (Phase 6.8–6.10). Target ≈ 70 items
 *Goal: prove it all.*
 1. ⚔ Grand tactics gauntlet: 12 puzzles across all motifs (new)
 2. ⚔ Endgame gauntlet: 4 conversions vs bot back-to-back (new)
-3. § Where to go from here: study plan beyond The Study (new)
+3. § Where to go from here: study plan beyond Shantranj (new)
 4. 👑 **Final Boss:** beat Bot 6 without assistance → unlocks "Graduate of the Study" achievement + profile flair
 
 ---

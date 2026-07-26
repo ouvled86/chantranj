@@ -1,11 +1,11 @@
-# PLAN — The Study: full-stack chess training platform
+# PLAN — Shantranj: full-stack chess training platform
 
 Master plan and decision record. Task-level detail: [TASKS.md](TASKS.md).
 Technical contracts: [ARCHITECTURE.md](ARCHITECTURE.md). Content: [CURRICULUM.md](CURRICULUM.md).
 
 ## 1. Product definition
 
-**The Study** — a chess improvement platform for players who know the rules and want to climb.
+**Shantranj** — a chess improvement platform for players who know the rules and want to climb.
 Not a demo: a portfolio-grade production app with real accounts, real games, real infra.
 
 Pillars:

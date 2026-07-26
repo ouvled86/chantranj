@@ -530,7 +530,7 @@ async def _finish_locked(game: LiveGame, result: GameResult, reason: str) -> Non
 
 def _pgn(game: LiveGame, result: GameResult) -> str:
     pgn_game = chess.pgn.Game.from_board(game.board)
-    pgn_game.headers["Event"] = f"The Study — {game.mode.value.title()}"
+    pgn_game.headers["Event"] = f"Shantranj — {game.mode.value.title()}"
     pgn_game.headers["Result"] = {
         GameResult.WHITE: "1-0",
         GameResult.BLACK: "0-1",

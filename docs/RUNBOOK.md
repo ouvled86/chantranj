@@ -1,4 +1,4 @@
-# RUNBOOK — The Study (operations)
+# RUNBOOK — Shantranj (operations)
 
 Practical operations for the production stack. Dev workflow lives in the README.
 
@@ -66,7 +66,7 @@ HSTS is preloaded, so certs must not lapse.
 
 ## Monitoring
 
-- Grafana at `/grafana/` (admin / `GRAFANA_PASSWORD`). Provisioned dashboard **"The Study —
+- Grafana at `/grafana/` (admin / `GRAFANA_PASSWORD`). Provisioned dashboard **"Shantranj —
   Product & Infra"**: API rate + p50/p95 latency (Prometheus), moves played, engine latency,
   active players, XP awarded, rating changes (TimescaleDB hypertables) — the automotive-
   telemetry homelab pattern applied to game data.

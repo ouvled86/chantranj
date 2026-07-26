@@ -84,6 +84,10 @@ services:
       VITE_POLL: "1"
     volumes:
       - ../../frontend:/app
+      # Keep the container's Linux node_modules OUT of the host bind mount: it
+      # installs as root (breaking `npm ci` on the CI runner with EACCES) and its
+      # native binaries are not the host's. Each side gets its own tree.
+      - /app/node_modules
     ports:
       - "5173:5173"
 
